@@ -1,21 +1,36 @@
 # 依存パッケージ
-node_modules/
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# テスト
+/coverage
 
 # Next.js のビルド成果物
-.next/
-out/
-build/
+/.next/
+/out/
+/build
 
 # 環境変数（APIキーなど）は絶対にGitHubに上げない
-.env
-.env*.local
+.env*
 
 # Vercel
 .vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
 # ログ・OS/エディタのファイル
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 .DS_Store
 Thumbs.db
+*.pem
