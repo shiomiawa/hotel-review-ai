@@ -55,6 +55,14 @@
 ## 技術スタック
 - Next.js（Vercelで公開）
 - Claude API：サーバー側（API Routes）からのみ呼び出す
+
+## AIモデルの方針（費用はなるべく少なく）
+- モデル名はコードに直接書かず、環境変数で切り替える
+  - `CLAUDE_MODEL_CLASSIFY`（4軸分類・要約用）／`CLAUDE_MODEL_REPLY`（返信下書き用）
+- 開発中の動作確認は、すべて Claude Haiku 4.5（`claude-haiku-4-5`）で行う
+- 完成版：分類は Claude Haiku 4.5、返信下書きは Claude Sonnet 5（`claude-sonnet-5`）
+- 画面ができるまでは API を呼ばず、ダミーの結果で進める（`USE_MOCK_AI=true`）
+- ステップ9（効果測定）で、返信下書きを Haiku 4.5 と Sonnet 5 で比較検証する
 - メール送信：無料枠のあるメール送信サービス（Resendなど）
 - データベースは使わない（10/3時点で余裕があれば追加を検討）
 
