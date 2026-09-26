@@ -1,9 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CsvUploader } from "@/components/CsvUploader";
+import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
+import { StatTiles } from "@/components/StatTiles";
 import { summarize, type ParseResult } from "@/lib/reviews";
+import { computeRatingStats } from "@/lib/stats";
 
 // loadId：読み込むたびに増やし、一覧の絞り込みをリセットするために使う
 type Loaded = ParseResult & { sourceName: string; loadId: number };
@@ -11,6 +14,7 @@ type Loaded = ParseResult & { sourceName: string; loadId: number };
 export function Dashboard() {
   const [data, setData] = useState<Loaded | null>(null);
   const summary = data ? summarize(data.reviews) : null;
+  const stats = useMemo(() => (data ? computeRatingStats(data.reviews) : null), [data]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -50,14 +54,19 @@ export function Dashboard() {
         )}
       </section>
 
-      {summary && data && (
+      {summary && stats && data && (
         <>
-          {/* 主役の分析はここに入る（ステップ4〜5で追加） */}
-          <section className="flex flex-col gap-3">
+          <section className="flex flex-col gap-4">
             <h2 className="text-lg font-bold">2. 分析結果</h2>
-            <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700">
-              評価点の集計と4軸分析は、次のステップで追加します。
+            {/* 4軸分類・優先改善アラート・強みはステップ5で、評価点の推移より上に追加する */}
+            <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              4軸分類・優先改善アラート・強みは、次のステップで追加します。
             </p>
+            <div className="flex flex-col gap-3">
+              <h3 className="font-bold">評価点の推移</h3>
+              <StatTiles stats={stats} />
+              <RatingCharts stats={stats} />
+            </div>
           </section>
 
           <section className="flex flex-col gap-3">
