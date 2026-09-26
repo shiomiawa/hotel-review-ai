@@ -5,7 +5,7 @@ import { CsvUploader } from "@/components/CsvUploader";
 import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
 import { StatTiles } from "@/components/StatTiles";
-import { summarize, type ParseResult } from "@/lib/reviews";
+import { FORMAT_LABELS, summarize, type ParseResult } from "@/lib/reviews";
 import { computeRatingStats } from "@/lib/stats";
 
 // loadId：読み込むたびに増やし、一覧の絞り込みをリセットするために使う
@@ -30,8 +30,11 @@ export function Dashboard() {
           <div className="flex flex-col gap-2 text-sm">
             {summary ? (
               <p className="rounded-md bg-teal-50 px-3 py-2 text-teal-900 dark:bg-teal-950 dark:text-teal-100">
-                {data.sourceName}：<strong>{summary.count}件</strong>を読み込みました（{summary.from}〜
-                {summary.to}）。当日（{summary.to}）の口コミは{summary.todayCount}件です。
+                {data.sourceName}（{data.format && FORMAT_LABELS[data.format]}）：
+                <strong>{summary.count}件</strong>を読み込みました（{summary.from}〜{summary.to}）。当日（
+                {summary.to}）の口コミは{summary.todayCount}件です。
+                {summary.ratingOnlyCount > 0 &&
+                  `うち${summary.ratingOnlyCount}件は本文のない評価のみの投稿で、評価点の集計にだけ使います。`}
               </p>
             ) : (
               <p className="rounded-md bg-red-50 px-3 py-2 text-red-800 dark:bg-red-950 dark:text-red-200">

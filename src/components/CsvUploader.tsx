@@ -100,7 +100,7 @@ export function CsvUploader({ onLoaded }: Props) {
           }}
         />
         <p className="text-xs text-zinc-500">
-          必要な列：date, site, rating, text, stay_type（UTF-8・Shift_JIS どちらも可）
+          標準形式（date, site, rating, text, stay_type）と、口コミコムの出力CSVに対応（UTF-8・Shift_JIS どちらも可）
         </p>
         {loading && <p className="text-sm text-zinc-500">読み込み中…</p>}
       </div>

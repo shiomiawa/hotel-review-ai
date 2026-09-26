@@ -5,14 +5,23 @@ import type { Review } from "@/lib/reviews";
 
 const PAGE_SIZE = 30;
 
+// 星は四捨五入して表示し、「4.7」のような小数は数値も添える
 function Stars({ rating }: { rating: number }) {
+  const stars = Math.round(rating);
   return (
     <span aria-label={`評価 ${rating}`} className="text-amber-500">
-      {"★".repeat(rating)}
-      <span className="text-zinc-300 dark:text-zinc-600">{"★".repeat(5 - rating)}</span>
+      {"★".repeat(stars)}
+      <span className="text-zinc-300 dark:text-zinc-600">{"★".repeat(5 - stars)}</span>
+      {!Number.isInteger(rating) && (
+        <span className="ml-1 text-xs text-zinc-600 dark:text-zinc-400">{rating.toFixed(1)}</span>
+      )}
     </span>
   );
 }
+
+const Badge = ({ children, className }: { children: React.ReactNode; className: string }) => (
+  <span className={`rounded px-1.5 py-0.5 text-xs ${className}`}>{children}</span>
+);
 
 export function ReviewList({ reviews, today }: { reviews: Review[]; today: string }) {
   const [site, setSite] = useState("すべて");
@@ -25,7 +34,7 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
     () =>
       reviews
         .filter((r) => site === "すべて" || r.site === site)
-        .filter((r) => rating === "すべて" || r.rating === Number(rating))
+        .filter((r) => rating === "すべて" || Math.round(r.rating) === Number(rating))
         // 新しい順（同じ日付なら読み込み順の後ろから）
         .sort((a, b) => b.date.localeCompare(a.date) || Number(b.id.slice(1)) - Number(a.id.slice(1))),
     [reviews, site, rating],
@@ -82,9 +91,30 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
               )}
               <Stars rating={r.rating} />
               <span className="text-zinc-500">{r.site}</span>
-              <span className="text-zinc-500">{r.stayType}</span>
+              {r.stayType !== "不明" && <span className="text-zinc-500">{r.stayType}</span>}
+              {r.language && (
+                <Badge className="bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
+                  {r.language}{r.originalText ? "・日本語訳" : ""}
+                </Badge>
+              )}
+              {r.replied === true && (
+                <Badge className="bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">返信済み</Badge>
+              )}
+              {r.replied === false && (
+                <Badge className="border border-amber-500 text-amber-700 dark:text-amber-400">未返信</Badge>
+              )}
             </div>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{r.text}</p>
+            {r.text ? (
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{r.text}</p>
+            ) : (
+              <p className="text-sm text-zinc-500">（本文なし・評価のみの投稿）</p>
+            )}
+            {r.originalText && (
+              <details className="text-xs text-zinc-500">
+                <summary className="cursor-pointer">原文を見る</summary>
+                <p className="mt-1 whitespace-pre-wrap">{r.originalText}</p>
+              </details>
+            )}
           </li>
         ))}
         {filtered.length === 0 && (
