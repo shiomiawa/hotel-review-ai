@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "口コミAI分析＆返信支援",
-  description: "滞在型ホテル・旅館向けの口コミAI分析＆返信支援アプリ",
+  description: "ホテル・旅館向けの口コミAI分析＆返信支援アプリ",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
