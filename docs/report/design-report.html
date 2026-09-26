@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>設計書レポート｜口コミAI分析＆返信支援アプリ</title>
+<style>
+  @page { size: A4; margin: 13mm 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Yu Gothic UI", "Yu Gothic", "Meiryo", "Hiragino Sans", sans-serif;
+    font-size: 9pt;
+    line-height: 1.5;
+    color: #1f1f1f;
+  }
+  h1 { font-size: 16pt; margin: 0 0 2mm; letter-spacing: 0.02em; }
+  h2 {
+    font-size: 11pt; margin: 3.6mm 0 1.6mm; padding-bottom: 0.8mm;
+    border-bottom: 1.5px solid #0f766e; color: #0f4f4a;
+  }
+  h3 { font-size: 9.5pt; margin: 2.5mm 0 1mm; }
+  p { margin: 0 0 1.5mm; }
+  ul { margin: 0 0 1.5mm; padding-left: 5mm; }
+  li { margin: 0.3mm 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 2mm; font-size: 8.5pt; }
+  th, td { border: 0.6px solid #c9c9c4; padding: 1mm 1.8mm; vertical-align: top; text-align: left; }
+  th { background: #f1f5f4; font-weight: 600; }
+  .meta { font-size: 8.5pt; color: #444; margin-bottom: 2mm; }
+  .meta span { margin-right: 4mm; }
+  .lead {
+    background: #f0f7f6; border-left: 3px solid #0f766e;
+    padding: 2mm 3mm; margin: 2mm 0;
+  }
+  .done { color: #006300; font-weight: 600; white-space: nowrap; }
+  .todo { color: #6b6b66; white-space: nowrap; }
+  .partial { color: #8a5a00; font-weight: 600; white-space: nowrap; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+  .small { font-size: 8pt; color: #555; }
+  figure { margin: 1.5mm 0 1mm; }
+  figure { text-align: center; }
+  figure img { width: 80%; border: 0.6px solid #c9c9c4; }
+  figcaption { text-align: left; }
+  figcaption { font-size: 7.8pt; color: #555; margin-top: 0.8mm; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 8pt; background: #f3f3f1; padding: 0 1mm; }
+  svg text { font-family: "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif; }
+</style>
+</head>
+<body>
+
+<!-- ============ 1ページ目 ============ -->
+<section class="page">
+  <h1>設計書レポート　口コミAI分析＆返信支援アプリ</h1>
+  <div class="meta">
+    <span>作成日：2026年9月26日（開発途中時点）</span>
+    <span>作成者：shiomiawa</span>
+    <span>提出期限：2026年10月7日</span><br>
+    <span>公開URL：https://hotel-review-ai.vercel.app</span>
+    <span>GitHub：https://github.com/shiomiawa/hotel-review-ai</span>
+  </div>
+
+  <div class="lead">
+    ホテル・旅館の口コミCSVを読み込み、<strong>4つの視点で分析して「優先して改善すべき点」と「強み」を示す</strong>Webアプリ。
+    返信文の下書き作成は、分析と改善に時間を回すための補助機能として位置づける。
+  </div>
+
+  <h2>1. 背景と解決したい課題</h2>
+  <ul>
+    <li>現場スタッフは口コミを見ても「返信文をどう書くか」に意識を取られ、口コミを業務改善に結び付けられていない。</li>
+    <li>特に「大変親切な接客でした」のような一言の好評口コミへの返信に迷い、時間がかかっている。</li>
+    <li>コンセプト：<strong>返信に悩む時間を、改善と接客に戻す。</strong>アプリの主役は「分析」とし、画面の並び順や見出しでも分析を先に大きく扱う。</li>
+  </ul>
+
+  <h2>2. 利用者と毎日の運用</h2>
+  <table>
+    <tr><th style="width:22%">利用者</th><td>ホテル・旅館の支配人、フロントスタッフ（宿泊の大半は1泊。観光・出張・家族旅行など）</td></tr>
+    <tr><th>いつ使うか</th><td>毎日夕方の決まった時間</td></tr>
+    <tr><th>流れ</th><td>① OTA管理画面や口コミ管理サービスから口コミCSVを取り出す → ② アプリに読み込む → ③ ボタン1つで分析 → ④ 現場スタッフへ日次メールを送る</td></tr>
+    <tr><th>設計思想</th><td>データを取りに行くのはオーナー。アプリは渡されたCSVを分析するだけ（自動収集はしない）。</td></tr>
+  </table>
+
+  <h2>3. 機能一覧と進捗（MVP：10/7までに作るもの）</h2>
+  <table>
+    <tr><th style="width:4%">#</th><th style="width:25%">機能</th><th>内容</th><th style="width:11%">状態</th></tr>
+    <tr><td>1</td><td>口コミCSVの読み込み</td><td>標準形式と口コミコムの出力CSVを列名から自動判別。UTF-8／Shift_JIS 対応。不正な行は「○行目：理由」を日本語で表示。口コミ一覧（絞り込み、返信済み／未返信、外国語の日本語訳）も完成。</td><td class="done">完了</td></tr>
+    <tr><td>2</td><td>4軸分類・優先改善アラート・強み</td><td>客室設備／通信環境／接客・ホスピタリティ／朝食・ラウンジ の4軸にAIで分類し、否定が多い軸をアラート、肯定が多い軸を強みとして表示。</td><td class="todo">未着手</td></tr>
+    <tr><td>3</td><td>返信下書きの生成</td><td>口調（格式高い／親しみやすい）とモード（お詫び＋再発防止／リピート誘致）を選択。季節感・館内サービスを盛り込む。</td><td class="todo">未着手</td></tr>
+    <tr><td>4</td><td>評価点の集計</td><td>当日・今月の平均、前月比、前年比のカード表示。月別平均・月別件数・今月の日別平均のグラフ、サイト別平均の表。</td><td class="done">完了</td></tr>
+    <tr><td>5</td><td>日次メール</td><td>当日の口コミ原文、今月のジャンル別要約、評価点の推移を送信。</td><td class="todo">未着手</td></tr>
+    <tr><td>6</td><td>分析結果のCSV書き出し</td><td>分類結果の列を付けて書き出す（Excelで文字化けしないBOM付きUTF-8）。</td><td class="todo">未着手</td></tr>
+  </table>
+
+  <h2>4. 今回作らないもの（フェーズ2以降）</h2>
+  <p>夜勤引継ぎ、料金比較、ログイン・DB・複数施設・料金プラン、OTA／Google とのAPI連携。<span class="small">期限内に「読み込み→分析→共有」を確実に動かすため範囲を絞った。</span></p>
+
+  <h2>5. システム構成</h2>
+  <svg viewBox="0 0 720 200" width="86%" style="display:block;margin:0 auto" role="img" aria-label="システム構成図">
+    <defs>
+      <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#555"/>
+      </marker>
+    </defs>
+    <!-- 利用者側 -->
+    <rect x="4" y="60" width="120" height="70" rx="6" fill="#fafaf8" stroke="#999"/>
+    <text x="64" y="84" text-anchor="middle" font-size="12" font-weight="600">支配人・スタッフ</text>
+    <text x="64" y="102" text-anchor="middle" font-size="10" fill="#444">OTA管理画面などから</text>
+    <text x="64" y="117" text-anchor="middle" font-size="10" fill="#444">CSVを取り出す</text>
+    <line x1="124" y1="95" x2="160" y2="95" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+    <!-- ブラウザ -->
+    <rect x="162" y="18" width="200" height="164" rx="6" fill="#f0f7f6" stroke="#0f766e" stroke-width="1.5"/>
+    <text x="262" y="38" text-anchor="middle" font-size="12" font-weight="700" fill="#0f4f4a">ブラウザ（画面）</text>
+    <text x="174" y="62" font-size="10.5">・CSVの読み込み・チェック</text>
+    <text x="174" y="80" font-size="10.5">・評価点の集計・グラフ</text>
+    <text x="174" y="98" font-size="10.5">　（AIを使わず計算で出す）</text>
+    <text x="174" y="116" font-size="10.5">・口コミ一覧・絞り込み</text>
+    <text x="174" y="134" font-size="10.5">・分析結果の表示・CSV書き出し</text>
+    <text x="174" y="164" font-size="9.5" fill="#555">データはDBに保存しない</text>
+    <!-- サーバー -->
+    <line x1="362" y1="95" x2="402" y2="95" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+    <rect x="404" y="18" width="160" height="164" rx="6" fill="#fff" stroke="#555" stroke-dasharray="5 3"/>
+    <text x="484" y="38" text-anchor="middle" font-size="12" font-weight="700">サーバー（予定）</text>
+    <text x="484" y="54" text-anchor="middle" font-size="9.5" fill="#555">Next.js API Routes</text>
+    <text x="414" y="78" font-size="10.5">/api/analyze　4軸分類</text>
+    <text x="414" y="98" font-size="10.5">/api/reply　返信下書き</text>
+    <text x="414" y="118" font-size="10.5">/api/email　日次メール</text>
+    <text x="414" y="144" font-size="9.5" fill="#555">APIキーは環境変数のみ</text>
+    <text x="414" y="160" font-size="9.5" fill="#555">1日の利用回数に上限</text>
+    <!-- 外部サービス -->
+    <line x1="564" y1="72" x2="598" y2="60" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+    <line x1="564" y1="118" x2="598" y2="138" stroke="#555" stroke-width="1.5" marker-end="url(#arw)"/>
+    <rect x="600" y="22" width="116" height="66" rx="6" fill="#fafaf8" stroke="#999"/>
+    <text x="658" y="44" text-anchor="middle" font-size="11.5" font-weight="600">Claude API</text>
+    <text x="658" y="62" text-anchor="middle" font-size="9.5" fill="#444">分類：Haiku 4.5</text>
+    <text x="658" y="77" text-anchor="middle" font-size="9.5" fill="#444">返信：Sonnet 5</text>
+    <rect x="600" y="110" width="116" height="56" rx="6" fill="#fafaf8" stroke="#999"/>
+    <text x="658" y="134" text-anchor="middle" font-size="11.5" font-weight="600">Resend</text>
+    <text x="658" y="152" text-anchor="middle" font-size="9.5" fill="#444">メール送信（無料枠）</text>
+    <text x="360" y="198" text-anchor="middle" font-size="9.5" fill="#555">全体を Vercel で公開（GitHub に push すると自動で再公開）。点線は未実装の部分。</text>
+  </svg>
+
+</section>
+
+<!-- ============ 2ページ目 ============ -->
+<section class="page">
+  <h2 style="margin-top:0">5.（続き）使う技術と選んだ理由</h2>
+  <table>
+    <tr><th style="width:30%">技術（用途）</th><th>選んだ理由</th></tr>
+    <tr><td>Next.js 16・TypeScript（画面とサーバー処理）</td><td>画面とAPI（サーバー側処理）を1つのプロジェクトで作れ、Vercelにそのまま公開できる。型でデータの形の食い違いを防ぐ。</td></tr>
+    <tr><td>Tailwind CSS（見た目）</td><td>スマホ幅・ダークモードへの対応を少ない記述で書ける。</td></tr>
+    <tr><td>Papa Parse（CSVの読み込み）</td><td>本文中のカンマ・改行・引用符を正しく扱える定番ライブラリ。</td></tr>
+    <tr><td>Recharts（グラフ）</td><td>Reactの部品としてグラフを書け、ツールチップも標準で使える。</td></tr>
+    <tr><td>Claude API（分類・返信下書き／予定）</td><td>日本語の文脈理解が必要なため。サーバー側からのみ呼び出し、APIキーを画面に出さない。</td></tr>
+    <tr><td>Resend（日次メール／予定）</td><td>無料枠（月3,000通）があり、APIで簡単に送れる。</td></tr>
+  </table>
+
+  <h2>6. データ設計</h2>
+  <div class="two">
+    <div>
+      <h3>読み込めるCSV（列名から自動判別）</h3>
+      <table>
+        <tr><th>項目</th><th>標準形式</th><th>口コミコム出力</th></tr>
+        <tr><td>日付</td><td>date</td><td>投稿日時</td></tr>
+        <tr><td>サイト</td><td>site</td><td>口コミサイト</td></tr>
+        <tr><td>評価</td><td>rating（1〜5）</td><td>★の数（小数あり）</td></tr>
+        <tr><td>本文</td><td>text</td><td>タイトル＋コメント</td></tr>
+        <tr><td>宿泊タイプ</td><td>stay_type（任意）</td><td>なし</td></tr>
+        <tr><td>その他</td><td>―</td><td>言語・翻訳コメント・返信内容</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>読み込み時のルール</h3>
+      <ul>
+        <li>CSVの最新日を「当日」とする。</li>
+        <li>外国語の口コミは日本語訳を分析に使い、原文も残す。</li>
+        <li>本文のない「評価のみ」の投稿は、評価点の集計にだけ使う。</li>
+        <li>上限：5MB・5,000行（公開URLでの過剰利用対策）。</li>
+      </ul>
+      <h3>データの扱い（必ず守る）</h3>
+      <ul>
+        <li>サンプルは<strong>すべて架空</strong>（296件・13か月分）。実在の口コミはリポジトリに入れない。</li>
+        <li>データベースは使わず、読み込んだデータは画面を開いている間だけ保持する。</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>7. 画面設計</h2>
+  <p>1ページ構成で、上から <strong>① CSVを読み込む → ② 分析結果 → ③ 口コミ一覧</strong> の順。主役の分析を一覧より上に置く。</p>
+  <figure>
+    <img src="screenshot.png" alt="分析結果の画面（評価点の推移）">
+    <figcaption>図：公開中のアプリで架空のサンプルを読み込んだ「評価点の推移」。平均点と件数は縦軸を2本にせず別グラフにし、上昇・低下は色だけでなく▲▼と言葉でも示す。各グラフに「表で見る」を付けた。</figcaption>
+  </figure>
+</section>
+
+<!-- ============ 3ページ目 ============ -->
+<section class="page">
+  <h2 style="margin-top:0">8. AI設計（費用をなるべく抑える）</h2>
+  <table>
+    <tr><th style="width:22%">項目</th><th>方針</th></tr>
+    <tr><td>モデルの使い分け</td><td>開発中の確認はすべて Claude Haiku 4.5。完成版は、分類を Haiku 4.5（入力$1／出力$5・100万トークンあたり）、自然な文章が求められる返信下書きだけ Sonnet 5（$2／$10）。</td></tr>
+    <tr><td>切り替え方</td><td>モデル名はコードに書かず環境変数（<code>CLAUDE_MODEL_CLASSIFY</code>／<code>CLAUDE_MODEL_REPLY</code>）で切り替える。未設定なら安い Haiku 4.5 で動く。</td></tr>
+    <tr><td>開発の順序</td><td>画面ができるまではAPIを呼ばず、ダミーの結果（<code>USE_MOCK_AI=true</code>）で進め、開発中の費用を0にする。</td></tr>
+    <tr><td>出力の形</td><td>決めたJSONの形で必ず返させる機能（Structured Outputs）を使い、分類結果が読めない失敗を防ぐ。</td></tr>
+    <tr><td>呼び出しを減らす工夫</td><td>AIで分類するのは今月分だけ（過去の月の評価点はコードで集計）。約20件ずつまとめて送る。返信下書きはボタンを押した1件だけ作る。</td></tr>
+  </table>
+
+  <h2>9. セキュリティ</h2>
+  <ul>
+    <li>APIキーは <code>.env.local</code> と Vercel の環境変数だけに置き、<code>.gitignore</code> で <code>.env*</code> をGitHubに上げない。コミット前にキーが含まれていないか毎回確認する。</li>
+    <li>公開URLからの使いすぎを防ぐため、デモ用パスコード（環境変数）とサーバー側での1日の回数制限を設ける（予定）。</li>
+    <li>ファイルサイズ・行数に上限を設け、画面に出す口コミ本文は文字として表示する（HTMLとして解釈させない）。</li>
+  </ul>
+
+  <h2>10. 開発の進め方と検証</h2>
+  <table>
+    <tr><th style="width:12%">日程</th><th>ステップ</th><th style="width:11%">状態</th></tr>
+    <tr><td>9/25〜9/26</td><td>1. プロジェクト作成・Vercel公開　2. 架空サンプルデータ作成　3. CSV読み込み・一覧　4. 評価点の集計・グラフ　＋口コミコム形式対応</td><td class="done">完了</td></tr>
+    <tr><td>9/30〜10/1</td><td>5. 4軸分類・アラート・返信の画面（ダミー）　6. Claude APIへの差し替え</td><td class="todo">未着手</td></tr>
+    <tr><td>10/2〜10/3</td><td>7. 日次メール　8. CSV書き出し・利用回数の上限・エラー表示</td><td class="todo">未着手</td></tr>
+    <tr><td>10/4〜10/6</td><td>9. 効果測定　10. 見た目の調整・README・最終公開（10/7 予備日・提出）</td><td class="todo">未着手</td></tr>
+  </table>
+  <ul>
+    <li><strong>Git運用：</strong>1機能ずつ「動作確認 → コミット → GitHubへプッシュ」。動かない状態はプッシュしない。</li>
+    <li><strong>検証：</strong>型チェック・lint・ビルドに加え、ブラウザを自動操作して確認（不正なCSV、絞り込み、スマホ幅、ダークモード）。集計値は別の計算方法と照合した。</li>
+    <li><strong>効果測定（予定）：</strong>返信作成時間（1件5〜7分→目標1分、10件実測）、分類の精度（架空50件に<strong>人が手作業で</strong>正解を付け、AIとの一致率を出す）、APIコスト（1件あたり・1施設1か月あたり）。返信下書きは Haiku 4.5 と Sonnet 5 を比較する。</li>
+  </ul>
+
+  <h2>11. 主な設計判断と理由</h2>
+  <table>
+    <tr><th style="width:28%">判断</th><th>理由</th></tr>
+    <tr><td>評価点の集計はAIを使わず計算で出す</td><td>平均・前月比・前年比は計算で正確に出せる。AIを使うと費用がかかり、数字が不正確になるおそれがある。</td></tr>
+    <tr><td>データベースを使わない</td><td>期限内に一連の流れを完成させることを優先。CSVをその都度読み込む運用で要件を満たせる。</td></tr>
+    <tr><td>前提を「1泊中心のホテル・旅館」に修正</td><td>当初「滞在型（長期滞在）」を前提にしていたが、実際の利用者はほとんどが1泊と分かり、施設設定・サンプルデータを作り直した。</td></tr>
+    <tr><td>口コミコムの出力CSVに対応</td><td>現場が実際に使う出力形式をそのまま読めることが、毎日の運用で使われる条件になる。形式の確認は列名と値の形だけで行い、実在の口コミの中身は使っていない。</td></tr>
+    <tr><td>精度測定の正解は人が付ける</td><td>AIに正解を付けさせると「AIとAIの比較」になり、精度の測定にならないため。</td></tr>
+  </table>
+
+  <h2>12. 今後の課題・未決定事項</h2>
+  <ul>
+    <li><strong>分類の軸：</strong>口コミコムのCSVには独自の4軸（品質・接客・清潔感・雰囲気）の件数が付いている。アプリ独自の4軸でAI分類するか、口コミコムの分類も参考表示するかを、ステップ5の前に決める。</li>
+    <li>Anthropic のAPIキー・Resend のアカウントの準備（ステップ6・7で必要）。</li>
+    <li>精度測定用の架空50件への正解ラベル付け（ステップ9までに実施）。</li>
+  </ul>
+</section>
+
+</body>
+</html>
