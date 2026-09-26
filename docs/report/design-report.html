@@ -53,9 +53,7 @@
 <section class="page">
   <h1>設計書レポート　口コミAI分析＆返信支援アプリ</h1>
   <div class="meta">
-    <span>作成日：2026年9月26日（開発途中時点）</span>
     <span>作成者：shiomiawa</span>
-    <span>提出期限：2026年10月7日</span><br>
     <span>公開URL：https://hotel-review-ai.vercel.app</span>
     <span>GitHub：https://github.com/shiomiawa/hotel-review-ai</span>
   </div>
@@ -80,7 +78,7 @@
     <tr><th>設計思想</th><td>データを取りに行くのはオーナー。アプリは渡されたCSVを分析するだけ（自動収集はしない）。</td></tr>
   </table>
 
-  <h2>3. 機能一覧と進捗（MVP：10/7までに作るもの）</h2>
+  <h2>3. 機能一覧と進捗（MVP）</h2>
   <table>
     <tr><th style="width:4%">#</th><th style="width:25%">機能</th><th>内容</th><th style="width:11%">状態</th></tr>
     <tr><td>1</td><td>口コミCSVの読み込み</td><td>標準形式と口コミコムの出力CSVを列名から自動判別。UTF-8／Shift_JIS 対応。不正な行は「○行目：理由」を日本語で表示。口コミ一覧（絞り込み、返信済み／未返信、外国語の日本語訳）も完成。</td><td class="done">完了</td></tr>
@@ -213,11 +211,11 @@
 
   <h2>10. 開発の進め方と検証</h2>
   <table>
-    <tr><th style="width:12%">日程</th><th>ステップ</th><th style="width:11%">状態</th></tr>
-    <tr><td>9/25〜9/26</td><td>1. プロジェクト作成・Vercel公開　2. 架空サンプルデータ作成　3. CSV読み込み・一覧　4. 評価点の集計・グラフ　＋口コミコム形式対応</td><td class="done">完了</td></tr>
-    <tr><td>9/30〜10/1</td><td>5. 4軸分類・アラート・返信の画面（ダミー）　6. Claude APIへの差し替え</td><td class="todo">未着手</td></tr>
-    <tr><td>10/2〜10/3</td><td>7. 日次メール　8. CSV書き出し・利用回数の上限・エラー表示</td><td class="todo">未着手</td></tr>
-    <tr><td>10/4〜10/6</td><td>9. 効果測定　10. 見た目の調整・README・最終公開（10/7 予備日・提出）</td><td class="todo">未着手</td></tr>
+    <tr><th>ステップ</th><th style="width:11%">状態</th></tr>
+    <tr><td>1. プロジェクト作成・Vercel公開　2. 架空サンプルデータ作成　3. CSV読み込み・一覧　4. 評価点の集計・グラフ　＋口コミコム形式対応</td><td class="done">完了</td></tr>
+    <tr><td>5. 4軸分類・アラート・返信の画面（ダミー）　6. Claude APIへの差し替え</td><td class="todo">未着手</td></tr>
+    <tr><td>7. 日次メール　8. CSV書き出し・利用回数の上限・エラー表示</td><td class="todo">未着手</td></tr>
+    <tr><td>9. 効果測定　10. 見た目の調整・README・最終公開</td><td class="todo">未着手</td></tr>
   </table>
   <ul>
     <li><strong>Git運用：</strong>1機能ずつ「動作確認 → コミット → GitHubへプッシュ」。動かない状態はプッシュしない。</li>
