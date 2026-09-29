@@ -57,3 +57,16 @@ npx tsx --env-file=.env.local scripts/measure-cost.ts
 
 - サンプルデータの1か月分（今月＋前月）を実際に分類し、要約も1回作って、1件あたり・1施設1か月あたりの費用を試算します（約4円）
 - 結果は `data/eval/results/cost-<モデル>-<日付>.md` に保存されます
+
+## 返信下書きを Haiku 4.5 と Sonnet 5 で比べる
+
+```bash
+npx tsx --env-file=.env.local scripts/compare-replies.ts
+```
+
+- サンプルから10件（一言の好評・苦情・良い点と悪い点が混ざったもの）を選び、両方のモデルで下書きを作って並べます（約10円）
+- 結果は `data/eval/results/replies-compare-<日付>.md`。どちらがよいかは人が読んで「評価」欄に記入します
+
+## 返信作成時間を測る
+
+`data/eval/reply-time.md` の手順で、10件の時間を計って記入します。

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ReplyDraft } from "@/components/ReplyDraft";
 import type { Review } from "@/lib/reviews";
 
 const PAGE_SIZE = 30;
@@ -298,6 +299,8 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
                 <p className="mt-1 whitespace-pre-wrap">{r.originalText}</p>
               </details>
             )}
+            {/* 返信下書き（補助機能）。本文のない「評価のみ」の投稿には出さない */}
+            {r.text && <ReplyDraft review={r} />}
           </li>
         ))}
         {filtered.length === 0 && (

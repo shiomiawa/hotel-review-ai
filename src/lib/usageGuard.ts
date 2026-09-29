@@ -9,23 +9,26 @@ import { timingSafeEqual } from "node:crypto";
 
 export const PASSCODE_HEADER = "x-demo-passcode";
 
-export type QuotaKind = "classifyItems" | "summaries" | "emails";
+export type QuotaKind = "classifyItems" | "summaries" | "emails" | "replies";
 
 // 1日の上限の初期値（環境変数で変えられる）
 const DEFAULT_LIMITS: Record<QuotaKind, number> = {
   classifyItems: 2000, // AIで分類する件数（口コミ＋現場の声）
   summaries: 30, // AIの要約の回数
   emails: 10, // メールの送信回数
+  replies: 100, // 返信下書きの回数
 };
 const LIMIT_ENV: Record<QuotaKind, string> = {
   classifyItems: "DAILY_LIMIT_CLASSIFY_ITEMS",
   summaries: "DAILY_LIMIT_SUMMARIES",
   emails: "DAILY_LIMIT_EMAILS",
+  replies: "DAILY_LIMIT_REPLIES",
 };
 const LABELS: Record<QuotaKind, string> = {
   classifyItems: "AIで分類できる件数",
   summaries: "AIの要約の回数",
   emails: "メールの送信回数",
+  replies: "返信下書きの回数",
 };
 
 export function dailyLimit(kind: QuotaKind): number {

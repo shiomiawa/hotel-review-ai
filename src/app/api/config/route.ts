@@ -11,6 +11,7 @@ export function GET() {
       classifyItems: dailyLimit("classifyItems"),
       summaries: dailyLimit("summaries"),
       emails: dailyLimit("emails"),
+      replies: dailyLimit("replies"),
     },
   });
 }

@@ -87,7 +87,7 @@ export type ServerConfig = {
   aiMode: "mock" | "ai";
   emailEnabled: boolean;
   passcodeRequired: boolean;
-  limits: { classifyItems: number; summaries: number; emails: number };
+  limits: { classifyItems: number; summaries: number; emails: number; replies: number };
 };
 
 export function useServerConfig(): ServerConfig | null {

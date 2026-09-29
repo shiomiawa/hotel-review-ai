@@ -7,6 +7,7 @@ export type Facility = {
   area: string;
   concept: string;
   managerName: string;
+  managerNameEn: string; // 英語の返信の署名に使う
   services: { name: string; detail: string }[];
   // 月（1〜12）ごとの季節の話題。返信文の結びなどに使う
   seasonal: Record<number, string>;
@@ -18,6 +19,7 @@ export const facility: Facility = {
   area: "海沿いの架空の港町「みなと市」。駅から徒歩5分",
   concept: "観光・出張・家族旅行で1泊から気軽に泊まれる、港町のホテル（全48室）",
   managerName: "支配人 山科",
+  managerNameEn: "Yamashina, General Manager",
   services: [
     { name: "朝食ビュッフェ", detail: "地元野菜を使った日替わりメニュー。名物はだし巻き卵（7:00〜9:30）" },
     { name: "ラウンジ", detail: "15:00〜22:00。コーヒー・紅茶は無料、17時以降は地元のクラフトビール（有料）" },
