@@ -13,23 +13,24 @@ import {
 } from "@/lib/analysis";
 import { summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
 import { postJson } from "@/lib/apiClient";
-import { buildDailyEmail, type DailyEmailData } from "@/lib/dailyEmail";
+import type { DailyEmailData } from "@/lib/dailyEmail";
 import type { Review } from "@/lib/reviews";
 import { computeRatingStats, monthLabel } from "@/lib/stats";
 import { buildSummary } from "@/lib/summary";
 import type { Voice } from "@/lib/voices";
 
 const jpDate = (d: string) => `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
+// 今日の日付（このパソコンの時計の日付。YYYY-MM-DD）
+const todayLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voices: Voice[]; cache: AnalysisCache }) {
+  // CSVの最新日（その日に口コミがないときの案内に使う）
   const baseDate = useMemo(() => baseDateOf(reviews, voices), [reviews, voices]);
-  // 選べる日付：口コミか現場の声がある日（新しい順）
-  const dates = useMemo(
-    () => [...new Set([...reviews.map((r) => r.date), ...voices.map((v) => v.receivedDate)])].sort().reverse(),
-    [reviews, voices],
-  );
-  const [selected, setSelected] = useState<string | null>(null);
-  const date = selected ?? baseDate;
+  // 対象の日はカレンダーで選ぶ。最初は今日
+  const [date, setDate] = useState(todayLocal);
   const allItems = useMemo(() => buildItems(reviews, voices), [reviews, voices]);
 
   const [sending, setSending] = useState(false);
@@ -110,8 +111,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
     };
   }, [date, reviews, voices, allItems, cache.classifications, cache.aiSummaries]);
 
-  const email = useMemo(() => (data ? buildDailyEmail(data) : null), [data]);
-  if (!data || !email || !date) return null;
+  if (!data) return null;
 
   async function send() {
     setSending(true);
@@ -133,25 +133,36 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-1">
           対象の日
-          <select
+          <input
+            type="date"
             value={date}
             onChange={(e) => {
-              setSelected(e.target.value);
+              if (!e.target.value) return; // 空にされたときは前の日付のまま
+              setDate(e.target.value);
               setMessage(null);
             }}
             className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {dates.map((d) => (
-              <option key={d} value={d}>
-                {jpDate(d)}
-              </option>
-            ))}
-          </select>
+          />
         </label>
+        {date !== todayLocal() && (
+          <button type="button" onClick={() => setDate(todayLocal())} className="text-sm text-teal-700 underline dark:text-teal-400">
+            今日にする
+          </button>
+        )}
         <span className="text-zinc-600 dark:text-zinc-400">
           口コミ {data.reviews.length}件・現場の声 {data.voices.length}件
         </span>
       </div>
+      {data.reviews.length === 0 && data.voices.length === 0 && (
+        <p className="text-sm text-zinc-500">
+          {jpDate(date)}の口コミ・現場の声はありません。
+          {baseDate && baseDate !== date && (
+            <button type="button" onClick={() => setDate(baseDate)} className="ml-1 text-teal-700 underline dark:text-teal-400">
+              口コミの最新日（{jpDate(baseDate)}）にする
+            </button>
+          )}
+        </p>
+      )}
 
       <ul className="flex flex-col gap-1 text-sm">
         <li>
@@ -168,15 +179,6 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
         </li>
       </ul>
 
-      <div className="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-800">
-        <p className="border-b border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <span className="text-zinc-500">件名：</span>
-          {email.subject}
-        </p>
-        {/* プレビュー。スクリプトは動かさない（sandbox） */}
-        <iframe title="日次メールのプレビュー" srcDoc={email.html} sandbox="" className="h-[520px] w-full bg-white" />
-      </div>
-
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -184,7 +186,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
           disabled={sending}
           className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
         >
-          {sending ? "送信しています…" : "この内容で送信する"}
+          {sending ? "送信しています…" : "メール送信"}
         </button>
         <span className="text-xs text-zinc-500">送り先は、サーバーに設定したメールアドレス（MAIL_TO）に固定されています。</span>
       </div>
