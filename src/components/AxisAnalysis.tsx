@@ -77,6 +77,53 @@ function Change({ now, before }: { now: number | null; before: number | null }) 
   );
 }
 
+const KEY_CARD_TONE = {
+  critical: { border: "border-t-[var(--status-critical)]!", text: "text-[var(--status-critical)]" },
+  good: { border: "border-t-[var(--status-good)]!", text: "text-[var(--status-good)]" },
+  attention: { border: "border-t-amber-500!", text: "text-amber-600 dark:text-amber-400" },
+  neutral: { border: "border-t-teal-700! dark:border-t-teal-400!", text: "text-teal-800 dark:text-teal-300" },
+};
+
+// 分析結果の先頭に置く要点カード。状態の色には必ず記号と言葉を添える
+function KeyCard({
+  href,
+  label,
+  value,
+  detail,
+  mark,
+  tone,
+}: {
+  href?: string;
+  label: string;
+  value: number;
+  detail: string;
+  mark: string;
+  tone: keyof typeof KEY_CARD_TONE;
+}) {
+  const { border, text } = KEY_CARD_TONE[tone];
+  const body = (
+    <>
+      <span className="text-xs text-zinc-600 dark:text-zinc-400">{label}</span>
+      <span className="flex items-baseline gap-1.5">
+        <span aria-hidden className={`text-lg font-bold ${text}`}>
+          {mark}
+        </span>
+        <span className="text-3xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{value}</span>
+        <span className="text-sm text-zinc-600 dark:text-zinc-400">件</span>
+      </span>
+      <span className="text-xs leading-snug text-zinc-600 dark:text-zinc-400">{detail}</span>
+    </>
+  );
+  const className = `flex flex-col gap-0.5 rounded-lg border border-t-4 border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-800 dark:bg-zinc-950 ${border}`;
+  return href ? (
+    <a href={href} className={`${className} transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900`}>
+      {body}
+    </a>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
 // 要約の各行の印（色だけに頼らず記号でも区別する）
 const SUMMARY_MARK: Record<SummaryLine["kind"], { mark: string; className: string }> = {
   overview: { mark: "・", className: "text-zinc-500" },
@@ -331,6 +378,38 @@ export function AxisAnalysis({
 
       {result && (
         <div className={`flex flex-col gap-5 ${loading ? "opacity-50" : ""}`}>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="この期間の要点">
+            <KeyCard
+              href="#axis-alerts"
+              label="優先改善アラート"
+              value={result.alerts.length}
+              mark="▲"
+              tone="critical"
+              detail={result.alerts.length > 0 ? result.alerts.map((a) => a.label).join("・") : "目立った不満なし"}
+            />
+            <KeyCard
+              href="#axis-good"
+              label="よいコメントが多い項目"
+              value={result.goodPoints.length}
+              mark="✓"
+              tone="good"
+              detail={result.goodPoints.length > 0 ? result.goodPoints.map((g) => g.label).join("・") : "まだありません"}
+            />
+            <KeyCard
+              label="分析した口コミ・声"
+              value={result.currentTotal}
+              mark="・"
+              tone="neutral"
+              detail={`口コミ ${reviewCount}件・現場の声 ${currentItems.length - reviewCount}件`}
+            />
+            <KeyCard
+              label="未完了の現場の声"
+              value={openVoices}
+              mark="□"
+              tone="attention"
+              detail={openVoices > 0 ? "未対応・対応中（この期間）" : "すべて対応済み"}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -448,7 +527,7 @@ export function AxisAnalysis({
             </div>
           </section>
 
-          <section className="flex flex-col gap-2" aria-label="優先改善アラート">
+          <section id="axis-alerts" className="flex scroll-mt-4 flex-col gap-2" aria-label="優先改善アラート">
             <h4 className="text-sm font-semibold">優先改善アラート</h4>
             {result.alerts.length === 0 && <p className="text-sm text-zinc-500">この期間は目立った不満はありません。</p>}
             {result.alerts.map((a) => (
@@ -467,7 +546,7 @@ export function AxisAnalysis({
             ))}
           </section>
 
-          <section className="flex flex-col gap-2" aria-label="よいコメント">
+          <section id="axis-good" className="flex scroll-mt-4 flex-col gap-2" aria-label="よいコメント">
             <h4 className="text-sm font-semibold">よいコメント</h4>
             {result.goodPoints.length === 0 && (
               <p className="text-sm text-zinc-500">この期間は、好評が目立つ項目はまだありません。</p>

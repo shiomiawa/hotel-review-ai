@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { AxisAnalysis } from "@/components/AxisAnalysis";
 import { CsvUploader } from "@/components/CsvUploader";
 import { DailyEmail } from "@/components/DailyEmail";
+import { GettingStarted } from "@/components/GettingStarted";
 import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
 import { ServerStatus } from "@/components/ServerStatus";
@@ -102,6 +103,8 @@ export function Dashboard() {
         hidden={tab !== "analysis"}
         className="flex flex-col gap-8"
       >
+        {/* まだ何も読み込んでいないときは、アプリの使い方を先に見せる */}
+        {!data && voices.length === 0 && <GettingStarted />}
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-bold">1. 口コミCSVを読み込む</h2>
           <CsvUploader
