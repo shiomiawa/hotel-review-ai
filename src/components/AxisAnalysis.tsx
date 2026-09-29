@@ -20,6 +20,7 @@ import {
   type PeriodUnit,
 } from "@/lib/analysis";
 import type { Review } from "@/lib/reviews";
+import { buildSummary, type SummaryLine } from "@/lib/summary";
 import type { Voice } from "@/lib/voices";
 
 const pct = (n: number, d: number) => (d === 0 ? "―" : `${Math.round((n / d) * 100)}%`);
@@ -71,6 +72,17 @@ function Change({ now, before }: { now: number | null; before: number | null }) 
     <span className="text-[var(--delta-down)]">▲{d}pt 悪化</span>
   );
 }
+
+// 要約の各行の印（色だけに頼らず記号でも区別する）
+const SUMMARY_MARK: Record<SummaryLine["kind"], { mark: string; className: string }> = {
+  overview: { mark: "・", className: "text-zinc-500" },
+  priority: { mark: "！", className: "text-[var(--status-critical)]" },
+  worse: { mark: "▲", className: "text-[var(--status-critical)]" },
+  better: { mark: "▼", className: "text-[var(--status-good)]" },
+  good: { mark: "✓", className: "text-[var(--status-good)]" },
+  steady: { mark: "・", className: "text-zinc-500" },
+  voices: { mark: "□", className: "text-amber-600 dark:text-amber-400" },
+};
 
 export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: Voice[] }) {
   const baseDate = useMemo(() => baseDateOf(reviews, voices), [reviews, voices]);
@@ -143,6 +155,16 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
   const previousLabel = PERIOD_UNITS.find((u) => u.id === unit)!.previous;
   const currentItems = targetItems.filter((i) => i.date >= current.start && i.date <= current.end);
   const reviewCount = currentItems.filter((i) => i.source === "review").length;
+  const openVoices = voices.filter(
+    (v) => v.receivedDate >= current.start && v.receivedDate <= current.end && v.status !== "完了",
+  ).length;
+  const summary = result
+    ? buildSummary(result, current, previous, {
+        reviews: reviewCount,
+        voices: currentItems.length - reviewCount,
+        openVoices,
+      })
+    : [];
 
   // 週は「年月 → 週」の2段で選ぶ（1つのプルダウンに全部の週を並べると長くなるため）
   const weekMonths = [...new Set(periods.map((p) => p.period.key.slice(0, 7)))];
@@ -261,6 +283,28 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
               ※ いまはAIにつなぐ前のダミーの分類（キーワードによる簡易判定）です。結果は画面の確認用です。
             </p>
           )}
+
+          <section
+            aria-label="この期間の要約"
+            className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <h4 className="text-sm font-semibold">
+              この期間の要約<span className="ml-2 text-xs font-normal text-zinc-500">（ネットの口コミ＋現場の声）</span>
+            </h4>
+            <ul className="flex flex-col gap-1 text-sm leading-relaxed">
+              {summary.map((line) => (
+                <li key={line.text} className="flex gap-2">
+                  <span aria-hidden className={`w-4 shrink-0 text-center font-bold ${SUMMARY_MARK[line.kind].className}`}>
+                    {SUMMARY_MARK[line.kind].mark}
+                  </span>
+                  <span>{line.text}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-zinc-500">
+              この要約は、下の分類結果の件数と割合から自動で作っています。コメントの内容まで読んだ要約は、AIにつないだあとで追加します。
+            </p>
+          </section>
 
           <section className="flex flex-col gap-2" aria-label="優先改善アラート">
             <h4 className="text-sm font-semibold">優先改善アラート</h4>
