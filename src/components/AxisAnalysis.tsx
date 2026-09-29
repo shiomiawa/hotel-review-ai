@@ -21,6 +21,22 @@ import {
 } from "@/lib/analysis";
 import type { Review } from "@/lib/reviews";
 import { buildSummary, type SummaryLine } from "@/lib/summary";
+
+// AIの利用量と料金の目安（100万トークンあたりの米ドル。1ドル=150円で換算）
+type Usage = { inputTokens: number; outputTokens: number };
+const PRICES: Record<string, { input: number; output: number; name: string }> = {
+  "claude-haiku-4-5": { input: 1, output: 5, name: "Claude Haiku 4.5" },
+  "claude-sonnet-5": { input: 2, output: 10, name: "Claude Sonnet 5" },
+};
+const YEN_PER_DOLLAR = 150;
+const costYen = (u: Usage, model: string) => {
+  const p = PRICES[model];
+  return p ? ((u.inputTokens * p.input + u.outputTokens * p.output) / 1_000_000) * YEN_PER_DOLLAR : null;
+};
+const modelName = (model: string | null) => (model ? (PRICES[model]?.name ?? model) : "");
+
+// AIの要約：軸ごとに「不満の内容」「好評の内容」の文だけ（数字は画面側でアプリの計算値を添える）
+type AiSummary = { mode: "mock" | "ai"; axes: { label: string; complaints: string; praises: string }[] };
 import type { Voice } from "@/lib/voices";
 
 const pct = (n: number, d: number) => (d === 0 ? "―" : `${Math.round((n / d) * 100)}%`);
@@ -95,6 +111,23 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
   // 分類結果は本文ごとに保存し、期間を切り替えても使い回す（まだ分類していない分だけ送る）
   const [classifications, setClassifications] = useState<Map<string, Classification>>(new Map());
   const [mode, setMode] = useState<"mock" | "ai" | null>(null);
+  // この画面を開いてからのAIの利用量（効果測定のAPIコストの記録にも使う）
+  const [usage, setUsage] = useState<{ total: Usage; model: string | null }>({
+    total: { inputTokens: 0, outputTokens: 0 },
+    model: null,
+  });
+  // AIの要約は、期間ごと・分類結果ごとに保存して使い回す
+  const [aiSummaries, setAiSummaries] = useState<Map<string, AiSummary>>(new Map());
+  const [summarizing, setSummarizing] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+
+  function addUsage(u: Usage | undefined, model: string | undefined) {
+    if (!u) return;
+    setUsage((prev) => ({
+      total: { inputTokens: prev.total.inputTokens + u.inputTokens, outputTokens: prev.total.outputTokens + u.outputTokens },
+      model: model ?? prev.model,
+    }));
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,6 +175,7 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
           if (c) next.set(classificationKey(item), c);
         }
         setMode(data.mode);
+        addUsage(data.usage, data.model);
       }
       setClassifications(next);
     } catch (e) {
@@ -152,6 +186,39 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
   }
 
   if (!current || !previous) return null;
+  // AIの要約の保存場所の目印（期間と、その期間の分類済みの口コミ・現場の声がそろっているか）
+  const summaryKey = `${unit}|${currentKey}|${targetItems.map((i) => classificationKey(i)).join(" ").length}|${targetItems.length}`;
+  const aiSummary = aiSummaries.get(summaryKey);
+
+  async function summarizeWithAI() {
+    if (!result || !current) return;
+    setSummarizing(true);
+    setSummaryError(null);
+    try {
+      const res = await fetch("/api/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          periodLabel: periodLabel(current),
+          axes: result.axes
+            .filter((a) => a.negativeComments.length + a.positiveComments.length > 0)
+            .map((a) => ({
+              label: a.label,
+              negative: a.negativeComments.slice(0, 30).map((i) => `[${i.channel}] ${i.text}`),
+              positive: a.positiveComments.slice(0, 30).map((i) => `[${i.channel}] ${i.text}`),
+            })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "要約に失敗しました");
+      setAiSummaries((prev) => new Map(prev).set(summaryKey, { mode: data.mode, axes: data.axes }));
+      addUsage(data.usage, data.model);
+    } catch (e) {
+      setSummaryError(e instanceof Error ? e.message : "要約に失敗しました");
+    } finally {
+      setSummarizing(false);
+    }
+  }
   const previousLabel = PERIOD_UNITS.find((u) => u.id === unit)!.previous;
   const currentItems = targetItems.filter((i) => i.date >= current.start && i.date <= current.end);
   const reviewCount = currentItems.filter((i) => i.source === "review").length;
@@ -283,6 +350,19 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
               ※ いまはAIにつなぐ前のダミーの分類（キーワードによる簡易判定）です。結果は画面の確認用です。
             </p>
           )}
+          {mode === "ai" && (
+            <p className="text-xs text-zinc-500">
+              AI（{modelName(usage.model)}）で分類しました。AIの判定には誤りが含まれることがあります。
+              {usage.model && (
+                <>
+                  この画面を開いてからのAIの利用：入力 {usage.total.inputTokens.toLocaleString()}トークン・出力{" "}
+                  {usage.total.outputTokens.toLocaleString()}トークン
+                  {costYen(usage.total, usage.model) !== null &&
+                    `（約${costYen(usage.total, usage.model)!.toFixed(2)}円、1ドル=150円で換算）`}
+                </>
+              )}
+            </p>
+          )}
 
           <section
             aria-label="この期間の要約"
@@ -301,9 +381,75 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-zinc-500">
-              この要約は、下の分類結果の件数と割合から自動で作っています。コメントの内容まで読んだ要約は、AIにつないだあとで追加します。
-            </p>
+            <p className="text-xs text-zinc-500">この要約は、下の分類結果の件数と割合から自動で作っています。</p>
+
+            <div className="mt-1 border-t border-zinc-200 pt-2 dark:border-zinc-800">
+              {aiSummary ? (
+                <div className="flex flex-col gap-1">
+                  <h5 className="text-sm font-semibold">
+                    コメントの内容の要約
+                    <span className="ml-2 text-xs font-normal text-zinc-500">
+                      {aiSummary.mode === "ai" ? `AI（${modelName(usage.model)}）が作成` : "ダミー"}
+                    </span>
+                  </h5>
+                  {(["complaints", "praises"] as const).map((kind) => {
+                    // 件数の多い軸から並べる。件数はアプリの計算値（AIには数字を書かせていない）
+                    const rows = result!.axes
+                      .map((a) => ({
+                        axis: a,
+                        text: aiSummary.axes.find((x) => x.label === a.label)?.[kind] ?? "",
+                        count: kind === "complaints" ? a.current.negative : a.current.positive,
+                      }))
+                      .filter((r) => r.text && r.count > 0)
+                      .sort((x, y) => y.count - x.count);
+                    if (rows.length === 0) return null;
+                    return (
+                      <div key={kind}>
+                        <p className="mt-1 text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                          {kind === "complaints" ? "不満の内容" : "好評の内容"}
+                        </p>
+                        <ul className="flex flex-col gap-1 text-sm leading-relaxed">
+                          {rows.map((r) => (
+                            <li key={r.axis.axis} className="flex gap-2">
+                              <span
+                                aria-hidden
+                                className={`w-4 shrink-0 text-center font-bold ${kind === "complaints" ? "text-[var(--status-critical)]" : "text-[var(--status-good)]"}`}
+                              >
+                                {kind === "complaints" ? "▲" : "✓"}
+                              </span>
+                              <span>
+                                <strong>
+                                  {r.axis.label}（{kind === "complaints" ? "不満" : "好評"}
+                                  {r.count}件）
+                                </strong>
+                                ：{r.text}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                  <p className="text-xs text-zinc-500">
+                    文章はAIがコメントを読んで作ったものです（件数はアプリが数えた値）。内容は元のコメントと合わせて確認してください。
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={summarizeWithAI}
+                  disabled={summarizing}
+                  className="rounded-md border border-teal-700 px-3 py-1.5 text-sm text-teal-800 hover:bg-teal-50 disabled:opacity-50 dark:border-teal-400 dark:text-teal-300 dark:hover:bg-teal-950"
+                >
+                  {summarizing ? "要約しています…" : "AIでコメントの内容を要約する"}
+                </button>
+              )}
+              {summaryError && (
+                <p role="alert" className="mt-1 text-sm text-red-700 dark:text-red-400">
+                  {summaryError}
+                </p>
+              )}
+            </div>
           </section>
 
           <section className="flex flex-col gap-2" aria-label="優先改善アラート">

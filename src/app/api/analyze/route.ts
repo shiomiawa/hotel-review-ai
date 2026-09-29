@@ -1,8 +1,12 @@
 import { MAX_ITEMS, MAX_TEXT_LENGTH } from "@/lib/analysis";
+import { classifyWithClaude, describeAIError, isMockAI } from "@/lib/claude";
 import { mockClassify } from "@/lib/mockClassify";
 
 // 口コミと現場の声を4軸に分類するAPI。
-// いまは USE_MOCK_AI が "false" でない限りダミー分類を返す（AIへの接続はステップ6）。
+// USE_MOCK_AI が "false" のときだけ Claude で分類し、それ以外はダミー分類を返す。
+
+// 1年分をまとめて分類すると時間がかかるため、処理の上限時間を延ばす（秒）
+export const maxDuration = 60;
 
 type Item = { id: string; text: string };
 
@@ -33,8 +37,15 @@ export async function POST(request: Request) {
   const items = readItems(body);
   if (typeof items === "string") return Response.json({ error: items }, { status: 400 });
 
-  if (process.env.USE_MOCK_AI !== "false") {
+  if (isMockAI()) {
     return Response.json({ mode: "mock", classifications: mockClassify(items) });
   }
-  return Response.json({ error: "AIによる分類はまだ接続していません（ステップ6で追加）" }, { status: 501 });
+  try {
+    const { results, usage, model } = await classifyWithClaude(items);
+    return Response.json({ mode: "ai", classifications: results, usage, model });
+  } catch (error) {
+    const { message, status } = describeAIError(error);
+    console.error("分類に失敗:", message);
+    return Response.json({ error: message }, { status });
+  }
 }
