@@ -136,7 +136,7 @@
 
 ## 効果測定（レポートに使う数字）
 - 返信作成時間：1件5〜7分 → 目標1分（完成後に10件実測する）
-- 分類の精度：架空口コミ50件を手作業で仕分けし、AIとの一致率を出す
+- 分類の精度：架空口コミ20件（判断が難しい例が中心）を手作業で仕分けし、AIとの一致率を出す
 - APIコスト：口コミ1件あたり、1施設・月あたりの金額を記録する
 - 測り方：`scripts/eval-classification.ts`（分類の精度）・`scripts/measure-cost.ts`（APIコスト）・`scripts/compare-replies.ts`（返信下書きの Haiku／Sonnet 比較）・`data/eval/reply-time.md`（返信作成時間の記録表）。使い方と結果は `data/eval/README.md`・`data/eval/results/`
 

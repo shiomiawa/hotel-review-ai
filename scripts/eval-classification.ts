@@ -2,7 +2,7 @@
 // 人が手作業で付けた正解ラベルと、AIの4軸分類を比べて一致率を出す。
 //
 // 実行：npx tsx --env-file=.env.local scripts/eval-classification.ts
-//   --file <CSV>   正解ラベル付きのCSV（初期値：data/eval/reviews_eval50.csv）
+//   --file <CSV>   正解ラベル付きのCSV（初期値：data/eval/reviews_eval20.csv）
 //   --mock         AIを呼ばずにダミー分類で試す（スクリプトの動作確認用・費用0）
 // 結果は data/eval/results/ に Markdown と JSON で保存する。
 
@@ -17,7 +17,7 @@ const argValue = (name: string) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const file = argValue("--file") ?? "data/eval/reviews_eval50.csv";
+const file = argValue("--file") ?? "data/eval/reviews_eval20.csv";
 const useMock = args.includes("--mock");
 
 const LABEL_COLUMN: Record<AxisId, string> = { room: "label_room", net: "label_net", service: "label_service", food: "label_food" };

@@ -1,6 +1,7 @@
-# 分類精度の測定用データ（50件）
+# 分類精度の測定用データ（20件）
 
-`reviews_eval50.csv` は、AIの4軸分類がどれくらい正しいかを測るための架空口コミ50件です。
+`reviews_eval20.csv` は、AIの4軸分類がどれくらい正しいかを測るための架空口コミ20件です。
+判断が難しい例（皮肉・複数の軸が混ざったもの・4軸以外の話題など）12件を中心に、長文の苦情2件・一言の好評3件・通常の口コミ3件を入れています。
 `scripts/generate-sample-data.mjs` で作り、サンプルCSV（`public/sample/reviews_sample.csv`）の中から選んでいます。
 
 **正解ラベル（`label_` の4列）は、人が手作業で記入します。**
@@ -44,7 +45,7 @@ AIに正解を付けさせると「AIとAIの比較」になり、精度の測�
 npx tsx --env-file=.env.local scripts/eval-classification.ts
 ```
 
-- `.env.local` の APIキーと `CLAUDE_MODEL_CLASSIFY` のモデルで、50件をAIに分類させ、記入した正解と比べます（Haiku 4.5 で約2円）
+- `.env.local` の APIキーと `CLAUDE_MODEL_CLASSIFY` のモデルで、20件をAIに分類させ、記入した正解と比べます（Haiku 4.5 で約1円）
 - 結果は `data/eval/results/eval-<モデル>-<日付>.md` に保存されます（一致率、軸ごとの「不満」の見つけやすさ・正しさ、人とAIの判定が分かれた例）
 - ラベルが空欄の欄があると、どこが空欄かを表示して止まります
 - `--mock` を付けると、AIを呼ばずにダミー分類で動作だけ確かめられます（費用0）

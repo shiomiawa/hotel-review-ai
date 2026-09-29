@@ -4,7 +4,7 @@
 //
 // 出力：
 //   public/sample/reviews_sample.csv  … アプリで読み込むサンプル（2025-09-01〜2026-09-26）
-//   data/eval/reviews_eval50.csv      … 分類精度の測定用50件（正解ラベルは手作業で記入する）
+//   data/eval/reviews_eval20.csv      … 分類精度の測定用20件（正解ラベルは手作業で記入する）
 //                                        手作業のラベルを消さないよう、すでにある場合は上書きしない
 //                                        （作り直すときは --force を付ける）
 
@@ -377,19 +377,21 @@ writeFileSync(
   toCsv(reviews, ["date", "site", "rating", "text", "stay_type"]),
 );
 
-// ---- 精度測定用の50件 ----
-// 手書きの難しい例を全部入れ、残りを通常の口コミから選ぶ
-const special = reviews.filter((r) => r.kind === "long-complaint" || r.kind === "tricky");
+// ---- 精度測定用の20件 ----
+// 手作業の負担を減らすため20件にする。判断が難しい例（全部）を中心に、
+// 長文の苦情2件・一言の好評3件・通常の口コミ3件を加える
+const tricky = reviews.filter((r) => r.kind === "tricky");
+const longComplaints = reviews.filter((r) => r.kind === "long-complaint").slice(0, 2);
 const oneLiners = reviews.filter((r) => r.kind === "one-liner");
 const generated = reviews.filter((r) => r.kind === "generated");
 const seen = new Set();
-const uniqueOneLiners = oneLiners.filter((r) => !seen.has(r.text) && seen.add(r.text)).slice(0, 8);
+const uniqueOneLiners = oneLiners.filter((r) => !seen.has(r.text) && seen.add(r.text)).slice(0, 3);
 const shuffled = [...generated].sort(() => rand() - 0.5);
-const eval50 = [...special, ...uniqueOneLiners, ...shuffled.slice(0, 50 - special.length - uniqueOneLiners.length)]
+const evalRows = [...tricky, ...longComplaints, ...uniqueOneLiners, ...shuffled.slice(0, 3)]
   .sort(() => rand() - 0.5)
   .map((r, i) => ({ id: `E${String(i + 1).padStart(2, "0")}`, ...r }));
 
-const EVAL_PATH = "data/eval/reviews_eval50.csv";
+const EVAL_PATH = "data/eval/reviews_eval20.csv";
 if (existsSync(EVAL_PATH) && !process.argv.includes("--force")) {
   console.log(`${EVAL_PATH} はすでにあるため上書きしませんでした（作り直すときは --force）`);
   console.log(`サンプル：${reviews.length}件`);
@@ -398,10 +400,10 @@ if (existsSync(EVAL_PATH) && !process.argv.includes("--force")) {
 mkdirSync("data/eval", { recursive: true });
 writeFileSync(
   EVAL_PATH,
-  toCsv(eval50, [
+  toCsv(evalRows, [
     "id", "date", "site", "rating", "text", "stay_type",
     "label_room", "label_net", "label_service", "label_food",
   ]),
 );
 
-console.log(`サンプル：${reviews.length}件 / 精度測定用：${eval50.length}件`);
+console.log(`サンプル：${reviews.length}件 / 精度測定用：${evalRows.length}件`);
