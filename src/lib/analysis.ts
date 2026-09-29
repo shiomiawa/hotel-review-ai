@@ -31,30 +31,102 @@ export type AnalysisItem = {
   text: string;
 };
 
-// サーバーに送る上限（公開URLでの使いすぎ対策）
+// サーバーに送る上限（公開URLでの使いすぎ対策）。これより多いときは分けて送る
 export const MAX_ITEMS = 500;
 export const MAX_TEXT_LENGTH = 2000;
 
-// 分析の基準日と対象期間。基準日は口コミCSVの最新日（なければ現場の声の最新日）
-export function analysisPeriod(reviews: Review[], voices: Voice[]) {
-  const dates = reviews.length > 0 ? reviews.map((r) => r.date) : voices.map((v) => v.receivedDate);
-  if (dates.length === 0) return null;
-  const baseDate = dates.reduce((a, b) => (a > b ? a : b));
-  const thisMonth = baseDate.slice(0, 7);
-  return { baseDate, thisMonth, prevMonth: shiftMonth(thisMonth, -1) };
+// 同じ本文の分類結果を使い回すための目印（本文が変われば分類し直す）
+export const classificationKey = (item: Pick<AnalysisItem, "id" | "text">) => `${item.id}\n${item.text}`;
+
+// ---- 分析の期間（年・月・週） ----
+// 期間ごとに要約し、1つ前の期間と比べて改善しているかを見る
+
+export type PeriodUnit = "year" | "month" | "week";
+export const PERIOD_UNITS: { id: PeriodUnit; label: string; previous: string }[] = [
+  { id: "year", label: "年", previous: "前年" },
+  { id: "month", label: "月", previous: "前月" },
+  { id: "week", label: "週", previous: "前週" },
+];
+
+const toDate = (s: string) => new Date(`${s}T00:00:00Z`);
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+function addDays(date: string, n: number) {
+  const d = toDate(date);
+  d.setUTCDate(d.getUTCDate() + n);
+  return iso(d);
+}
+// 週は月曜日始まり。週の目印はその週の月曜日の日付
+function mondayOf(date: string) {
+  const d = toDate(date);
+  return addDays(date, -((d.getUTCDay() + 6) % 7));
 }
 
-// 今月と前月の口コミ・現場の声を、分類に送る形にそろえる。本文のない「評価のみ」の投稿は除く
-export function buildItems(reviews: Review[], voices: Voice[], months: string[]): AnalysisItem[] {
-  const inPeriod = (date: string) => months.includes(date.slice(0, 7));
+// その日付が入る期間の目印："2026"／"2026-09"／"2026-09-21"（週の月曜日）
+export function periodKeyOf(date: string, unit: PeriodUnit): string {
+  if (unit === "year") return date.slice(0, 4);
+  if (unit === "month") return date.slice(0, 7);
+  return mondayOf(date);
+}
+
+export type Period = { unit: PeriodUnit; key: string; start: string; end: string };
+
+export function periodOf(unit: PeriodUnit, key: string): Period {
+  if (unit === "year") return { unit, key, start: `${key}-01-01`, end: `${key}-12-31` };
+  if (unit === "month") {
+    const [y, m] = key.split("-").map(Number);
+    const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    return { unit, key, start: `${key}-01`, end: `${key}-${String(last).padStart(2, "0")}` };
+  }
+  return { unit, key, start: key, end: addDays(key, 6) };
+}
+
+export function previousPeriod(p: Period): Period {
+  if (p.unit === "year") return periodOf("year", String(Number(p.key) - 1));
+  if (p.unit === "month") return periodOf("month", shiftMonth(p.key, -1));
+  return periodOf("week", addDays(p.key, -7));
+}
+
+const md = (date: string) => `${Number(date.slice(5, 7))}月${Number(date.slice(8, 10))}日`;
+export function periodLabel(p: Period): string {
+  if (p.unit === "year") return `${p.key}年`;
+  if (p.unit === "month") return `${p.key.slice(0, 4)}年${Number(p.key.slice(5, 7))}月`;
+  const sameMonth = p.start.slice(0, 7) === p.end.slice(0, 7);
+  return `${p.start.slice(0, 4)}年${md(p.start)}〜${sameMonth ? `${Number(p.end.slice(8, 10))}日` : md(p.end)}`;
+}
+
+const inPeriod = (date: string, p: Pick<Period, "start" | "end">) => date >= p.start && date <= p.end;
+
+// 分析の基準日：口コミCSVの最新日（なければ現場の声の最新日）
+export function baseDateOf(reviews: Review[], voices: Voice[]): string | null {
+  const dates = reviews.length > 0 ? reviews.map((r) => r.date) : voices.map((v) => v.receivedDate);
+  return dates.length === 0 ? null : dates.reduce((a, b) => (a > b ? a : b));
+}
+
+// 口コミと現場の声を、分類に送る形にそろえる。本文のない「評価のみ」の投稿は除く
+export function buildItems(reviews: Review[], voices: Voice[]): AnalysisItem[] {
   return [
     ...reviews
-      .filter((r) => r.text !== "" && inPeriod(r.date))
+      .filter((r) => r.text !== "")
       .map((r): AnalysisItem => ({ id: `review:${r.id}`, source: "review", channel: NET_CHANNEL, date: r.date, text: r.text })),
-    ...voices
-      .filter((v) => inPeriod(v.receivedDate))
-      .map((v): AnalysisItem => ({ id: `voice:${v.id}`, source: "voice", channel: v.channel, date: v.receivedDate, text: v.content })),
+    ...voices.map(
+      (v): AnalysisItem => ({ id: `voice:${v.id}`, source: "voice", channel: v.channel, date: v.receivedDate, text: v.content }),
+    ),
   ];
+}
+
+export const itemsIn = (items: AnalysisItem[], ...periods: Period[]) =>
+  items.filter((i) => periods.some((p) => inPeriod(i.date, p)));
+
+// データがある期間の一覧（古い順）と件数
+export function listPeriods(items: AnalysisItem[], unit: PeriodUnit): { period: Period; count: number }[] {
+  const counts = new Map<string, number>();
+  for (const i of items) {
+    const key = periodKeyOf(i.date, unit);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, count]) => ({ period: periodOf(unit, key), count }));
 }
 
 // ---- 集計 ----
@@ -65,98 +137,113 @@ const emptyCount = (): AxisCount => ({ mentions: 0, positive: 0, negative: 0 });
 export type AxisSummary = {
   axis: AxisId;
   label: string;
-  thisMonth: AxisCount;
-  prevMonth: AxisCount;
-  negativeExamples: AnalysisItem[]; // 今月の不満の例（新しい順）
-  positiveExamples: AnalysisItem[];
+  current: AxisCount;
+  previous: AxisCount;
+  negativeComments: AnalysisItem[]; // 選んだ期間の不満（新しい順）
+  positiveComments: AnalysisItem[]; // 選んだ期間の好評（新しい順）
 };
 
-export type Alert = { axis: AxisId; label: string; reason: string };
-export type Strength = { axis: AxisId; label: string; reason: string };
+export type Highlight = { axis: AxisId; label: string; reason: string };
 
 export type ChannelRow = {
   channel: ChannelName;
-  items: number; // 期間内の件数
+  items: number; // 選んだ期間の件数
   negative: Record<AxisId, number>; // 軸ごとの不満の件数
 };
 
 export type AnalysisResult = {
+  // 期間内の件数（分類済み）。不満の割合＝不満の件数÷この件数（件数が違う期間どうしでも比べられるように）
+  currentTotal: number;
+  previousTotal: number;
   axes: AxisSummary[];
-  alerts: Alert[];
-  strengths: Strength[];
+  alerts: Highlight[]; // 優先改善アラート
+  goodPoints: Highlight[]; // よいコメントが多い軸
   channels: ChannelRow[];
 };
 
-// アラート・強みの判断基準（件数が少ないうちは出さない）
-const ALERT_MIN_NEGATIVE = 3;
+// アラート・よいコメントの判断基準。期間が短いほど件数が少ないので、最低件数を期間に合わせる
+const THRESHOLDS: Record<PeriodUnit, { minNegative: number; minPositive: number }> = {
+  week: { minNegative: 2, minPositive: 3 },
+  month: { minNegative: 3, minPositive: 5 },
+  year: { minNegative: 6, minPositive: 10 },
+};
 const ALERT_NEGATIVE_SHARE = 0.4; // 言及のうち不満が4割以上
-const ALERT_INCREASE = 1.5; // 前月の1.5倍以上に増えた
-const STRENGTH_MIN_POSITIVE = 5;
-const STRENGTH_POSITIVE_SHARE = 0.75;
+const ALERT_INCREASE = 1.5; // 不満の割合が、1つ前の期間の1.5倍以上に増えた
+const GOOD_POSITIVE_SHARE = 0.75; // 言及のうち好評が75%以上
 
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 
 export function summarizeAnalysis(
   items: AnalysisItem[],
-  classifications: Classification[],
-  period: { thisMonth: string; prevMonth: string },
+  classifications: Map<string, Classification>,
+  current: Period,
+  previous: Period,
 ): AnalysisResult {
-  const byId = new Map(classifications.map((c) => [c.id, c]));
   const classified = items.flatMap((item) => {
-    const c = byId.get(item.id);
+    const c = classifications.get(classificationKey(item));
     return c ? [{ item, c }] : [];
   });
+  const previousLabel = PERIOD_UNITS.find((u) => u.id === current.unit)!.previous;
+  const newest = (a: AnalysisItem, b: AnalysisItem) => b.date.localeCompare(a.date);
 
   const axes: AxisSummary[] = AXES.map(({ id, label }) => {
     const summary: AxisSummary = {
       axis: id,
       label,
-      thisMonth: emptyCount(),
-      prevMonth: emptyCount(),
-      negativeExamples: [],
-      positiveExamples: [],
+      current: emptyCount(),
+      previous: emptyCount(),
+      negativeComments: [],
+      positiveComments: [],
     };
     for (const { item, c } of classified) {
-      const month = item.date.slice(0, 7);
-      const target = month === period.thisMonth ? summary.thisMonth : month === period.prevMonth ? summary.prevMonth : null;
+      const isCurrent = inPeriod(item.date, current);
+      const target = isCurrent ? summary.current : inPeriod(item.date, previous) ? summary.previous : null;
       if (!target || c[id] === "none") continue;
       target.mentions++;
       if (c[id] === "positive") target.positive++;
       if (c[id] === "negative") target.negative++;
-      if (month === period.thisMonth && c[id] === "negative") summary.negativeExamples.push(item);
-      if (month === period.thisMonth && c[id] === "positive") summary.positiveExamples.push(item);
+      if (isCurrent && c[id] === "negative") summary.negativeComments.push(item);
+      if (isCurrent && c[id] === "positive") summary.positiveComments.push(item);
     }
-    const newest = (a: AnalysisItem, b: AnalysisItem) => b.date.localeCompare(a.date);
-    summary.negativeExamples.sort(newest);
-    summary.positiveExamples.sort(newest);
+    summary.negativeComments.sort(newest);
+    summary.positiveComments.sort(newest);
     return summary;
   });
 
-  const alerts: Alert[] = [];
-  const strengths: Strength[] = [];
+  const currentTotal = classified.filter(({ item }) => inPeriod(item.date, current)).length;
+  const previousTotal = classified.filter(({ item }) => inPeriod(item.date, previous)).length;
+  const rate = (n: number, total: number) => (total === 0 ? 0 : n / total);
+
+  const { minNegative, minPositive } = THRESHOLDS[current.unit];
+  const alerts: Highlight[] = [];
+  const goodPoints: Highlight[] = [];
   for (const a of axes) {
-    const { negative, positive, mentions } = a.thisMonth;
+    const { negative, positive, mentions } = a.current;
     const share = mentions > 0 ? negative / mentions : 0;
-    const prev = a.prevMonth.negative;
-    const increased = negative >= ALERT_MIN_NEGATIVE && negative >= prev * ALERT_INCREASE && negative > prev;
-    if (negative >= ALERT_MIN_NEGATIVE && (share >= ALERT_NEGATIVE_SHARE || increased)) {
-      const reasons = [`今月の不満 ${negative}件（言及の${pct(share)}）`];
-      if (increased) reasons.push(`前月 ${prev}件から増加`);
+    // 件数ではなく「不満の割合」で比べる（期間によって口コミの件数が違うため）
+    const nowRate = rate(negative, currentTotal);
+    const prevRate = rate(a.previous.negative, previousTotal);
+    const increased = previousTotal > 0 && nowRate > prevRate && nowRate >= prevRate * ALERT_INCREASE;
+    if (negative >= minNegative && (share >= ALERT_NEGATIVE_SHARE || increased)) {
+      const reasons = [`不満 ${negative}件（言及の${pct(share)}）`];
+      if (increased) reasons.push(`不満の割合が${previousLabel}の${pct(prevRate)}から${pct(nowRate)}に増加`);
       alerts.push({ axis: a.axis, label: a.label, reason: reasons.join("、") });
-    } else if (positive >= STRENGTH_MIN_POSITIVE && mentions > 0 && positive / mentions >= STRENGTH_POSITIVE_SHARE) {
-      strengths.push({ axis: a.axis, label: a.label, reason: `今月の好評 ${positive}件（言及の${pct(positive / mentions)}）` });
+    } else if (positive >= minPositive && mentions > 0 && positive / mentions >= GOOD_POSITIVE_SHARE) {
+      goodPoints.push({ axis: a.axis, label: a.label, reason: `好評 ${positive}件（言及の${pct(positive / mentions)}）` });
     }
   }
-  // 不満の多い順に並べる
-  alerts.sort((x, y) => axes.find((a) => a.axis === y.axis)!.thisMonth.negative - axes.find((a) => a.axis === x.axis)!.thisMonth.negative);
+  const negativeOf = (axis: AxisId) => axes.find((a) => a.axis === axis)!.current.negative;
+  const positiveOf = (axis: AxisId) => axes.find((a) => a.axis === axis)!.current.positive;
+  alerts.sort((x, y) => negativeOf(y.axis) - negativeOf(x.axis));
+  goodPoints.sort((x, y) => positiveOf(y.axis) - positiveOf(x.axis));
 
   const channels: ChannelRow[] = ALL_CHANNELS.map((channel) => {
-    const rows = classified.filter(({ item }) => item.channel === channel);
+    const rows = classified.filter(({ item }) => item.channel === channel && inPeriod(item.date, current));
     const negative = Object.fromEntries(
       AXES.map(({ id }) => [id, rows.filter(({ c }) => c[id] === "negative").length]),
     ) as Record<AxisId, number>;
     return { channel, items: rows.length, negative };
   });
 
-  return { axes, alerts, strengths, channels };
+  return { currentTotal, previousTotal, axes, alerts, goodPoints, channels };
 }
