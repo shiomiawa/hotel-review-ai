@@ -64,6 +64,15 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
   }, [reviews, periodMode]);
   const periodIndex = periodOptions.findIndex((o) => o.value === periodValue);
 
+  // 「日」のときは、年月を選んでから日を選ぶ（1つのプルダウンに全日付を並べると長くなるため）
+  const monthOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of reviews) counts.set(r.date.slice(0, 7), (counts.get(r.date.slice(0, 7)) ?? 0) + 1);
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([value, count]) => ({ value, count }));
+  }, [reviews]);
+  const selectedMonth = periodValue.slice(0, 7);
+  const dayOptions = periodMode === "day" ? periodOptions.filter((o) => o.value.startsWith(selectedMonth)) : [];
+
   function changePeriod(mode: PeriodMode, value?: string) {
     setPeriodMode(mode);
     // 値を指定しなければ、当日（CSVの最新日）を含む期間にする
@@ -117,8 +126,8 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
           ))}
         </div>
         {periodMode !== "all" && (
-          // 「前へ・期間・次へ」は折り返しても離れないよう、ひとまとまりにする
-          <span className="flex items-center gap-2">
+          // 「前へ・期間・次へ」はほかの部品と混ざらないよう、ひとまとまりにする（狭い画面では中で折り返す）
+          <span className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => changePeriod(periodMode, periodOptions[periodIndex - 1].value)}
@@ -127,21 +136,52 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
             >
               ‹ 前へ
             </button>
-            <select
-              aria-label="対象の期間"
-              value={periodValue}
-              onChange={(e) => changePeriod(periodMode, e.target.value)}
-              className={selectClass}
-            >
-              {periodIndex === -1 && (
-                <option value={periodValue}>{periodLabel(periodMode, periodValue)}（0件）</option>
-              )}
-              {periodOptions.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {periodLabel(periodMode, o.value)}（{o.count}件）
-                </option>
-              ))}
-            </select>
+            {periodMode === "day" ? (
+              <>
+                <select
+                  aria-label="対象の年月"
+                  value={selectedMonth}
+                  // 年月を選び直したら、その月の最初の日を表示する
+                  onChange={(e) => changePeriod("day", periodOptions.find((o) => o.value.startsWith(e.target.value))?.value)}
+                  className={selectClass}
+                >
+                  {monthOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {periodLabel("month", o.value)}（{o.count}件）
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="対象の日"
+                  value={periodValue}
+                  onChange={(e) => changePeriod("day", e.target.value)}
+                  className={selectClass}
+                >
+                  {periodIndex === -1 && <option value={periodValue}>{Number(periodValue.slice(8, 10))}日（0件）</option>}
+                  {dayOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {Number(o.value.slice(8, 10))}日（{o.count}件）
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <select
+                aria-label="対象の期間"
+                value={periodValue}
+                onChange={(e) => changePeriod(periodMode, e.target.value)}
+                className={selectClass}
+              >
+                {periodIndex === -1 && (
+                  <option value={periodValue}>{periodLabel(periodMode, periodValue)}（0件）</option>
+                )}
+                {periodOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {periodLabel(periodMode, o.value)}（{o.count}件）
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               onClick={() => changePeriod(periodMode, periodOptions[periodIndex + 1].value)}
