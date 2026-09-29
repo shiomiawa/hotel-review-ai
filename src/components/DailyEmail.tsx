@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { facility } from "@/config/facility";
 import {
-  baseDateOf,
   buildItems,
   classificationKey,
   itemsIn,
@@ -15,11 +14,10 @@ import { summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
 import { postJson } from "@/lib/apiClient";
 import type { DailyEmailData } from "@/lib/dailyEmail";
 import type { Review } from "@/lib/reviews";
-import { computeRatingStats, monthLabel } from "@/lib/stats";
+import { computeRatingStats } from "@/lib/stats";
 import { buildSummary } from "@/lib/summary";
 import type { Voice } from "@/lib/voices";
 
-const jpDate = (d: string) => `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 // 今日の日付（このパソコンの時計の日付。YYYY-MM-DD）
 const todayLocal = () => {
   const d = new Date();
@@ -27,8 +25,6 @@ const todayLocal = () => {
 };
 
 export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voices: Voice[]; cache: AnalysisCache }) {
-  // CSVの最新日（その日に口コミがないときの案内に使う）
-  const baseDate = useMemo(() => baseDateOf(reviews, voices), [reviews, voices]);
   // 対象の日はカレンダーで選ぶ。最初は今日
   const [date, setDate] = useState(todayLocal);
   const allItems = useMemo(() => buildItems(reviews, voices), [reviews, voices]);
@@ -126,8 +122,6 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
     }
   }
 
-  const monthAnalyzed = data.month.summaryLines.length > 0;
-
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -149,35 +143,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
             今日にする
           </button>
         )}
-        <span className="text-zinc-600 dark:text-zinc-400">
-          口コミ {data.reviews.length}件・現場の声 {data.voices.length}件
-        </span>
       </div>
-      {data.reviews.length === 0 && data.voices.length === 0 && (
-        <p className="text-sm text-zinc-500">
-          {jpDate(date)}の口コミ・現場の声はありません。
-          {baseDate && baseDate !== date && (
-            <button type="button" onClick={() => setDate(baseDate)} className="ml-1 text-teal-700 underline dark:text-teal-400">
-              口コミの最新日（{jpDate(baseDate)}）にする
-            </button>
-          )}
-        </p>
-      )}
-
-      <ul className="flex flex-col gap-1 text-sm">
-        <li>
-          {monthAnalyzed ? "✓" : "・"} {monthLabel(data.month.key)}の4軸分析：
-          {monthAnalyzed
-            ? "分析済み（要約をメールに入れます）"
-            : "まだ分析していません。上の4軸分析で「月」を選び「分析する」を押すと、要約がメールに入ります"}
-        </li>
-        <li>
-          {data.month.aiSummary.length > 0 ? "✓" : "・"} AIによるコメントの内容の要約：
-          {data.month.aiSummary.length > 0
-            ? "あり（メールに入れます）"
-            : "なし（上の4軸分析で「AIでコメントの内容を要約する」を押すと入ります。任意）"}
-        </li>
-      </ul>
 
       <div className="flex flex-wrap items-center gap-3">
         <button
