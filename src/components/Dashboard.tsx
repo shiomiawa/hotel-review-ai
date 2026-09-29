@@ -15,9 +15,11 @@ import { useVoices } from "@/lib/voiceStore";
 type Loaded = ParseResult & { sourceName: string; loadId: number };
 const NO_REVIEWS: Review[] = [];
 
+// short：スマホ幅で使う短い名前
 const TABS = [
-  { id: "analysis", label: "分析ダッシュボード" },
-  { id: "voices", label: "現場の声の記録" },
+  { id: "analysis", label: "分析ダッシュボード", short: "分析" },
+  { id: "reviews", label: "口コミ一覧", short: "口コミ一覧" },
+  { id: "voices", label: "現場の声の記録", short: "現場の声" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -47,15 +49,42 @@ export function Dashboard() {
                 : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
             }`}
           >
-            {t.label}
+            <span className="sm:hidden">{t.short}</span>
+            <span className="hidden sm:inline">{t.label}</span>
+            {t.id === "reviews" && summary && (
+              <span className="ml-1 text-xs text-zinc-500">（{summary.count}件）</span>
+            )}
             {t.id === "voices" && openVoices > 0 && (
-              <span className="ml-2 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs text-white">未完了 {openVoices}</span>
+              <span className="ml-1.5 rounded-full bg-amber-500 px-1.5 py-0.5 text-xs text-white" title="未完了の件数">
+                <span className="hidden sm:inline">未完了 </span>
+                {openVoices}
+              </span>
             )}
           </button>
         ))}
       </div>
 
-      {/* タブを切り替えても入力中の内容や絞り込みが消えないよう、両方とも表示したまま隠す */}
+      {/* タブを切り替えても入力中の内容や絞り込みが消えないよう、すべて表示したまま隠す */}
+      <div role="tabpanel" id="panel-reviews" aria-labelledby="tab-reviews" hidden={tab !== "reviews"}>
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-bold">口コミ一覧</h2>
+          {summary && data ? (
+            <ReviewList key={data.loadId} reviews={data.reviews} today={summary.to} />
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-zinc-300 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700">
+              <p>「分析ダッシュボード」で口コミCSVを読み込むと、ここに一覧が表示されます。</p>
+              <button
+                type="button"
+                onClick={() => setTab("analysis")}
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                分析ダッシュボードへ
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+
       <div role="tabpanel" id="panel-voices" aria-labelledby="tab-voices" hidden={tab !== "voices"}>
         <VoicesPanel />
       </div>
@@ -84,6 +113,13 @@ export function Dashboard() {
                   {summary.to}）の口コミは{summary.todayCount}件です。
                   {summary.ratingOnlyCount > 0 &&
                     `うち${summary.ratingOnlyCount}件は本文のない評価のみの投稿で、評価点の集計にだけ使います。`}
+                  <button
+                    type="button"
+                    onClick={() => setTab("reviews")}
+                    className="ml-2 font-medium text-teal-800 underline dark:text-teal-300"
+                  >
+                    口コミ一覧を見る
+                  </button>
                 </p>
               ) : (
                 <p className="rounded-md bg-red-50 px-3 py-2 text-red-800 dark:bg-red-950 dark:text-red-200">
@@ -123,15 +159,6 @@ export function Dashboard() {
           </section>
         )}
 
-        {summary && data && (
-          <>
-
-            <section className="flex flex-col gap-3">
-              <h2 className="text-lg font-bold">3. 口コミ一覧</h2>
-              <ReviewList key={data.loadId} reviews={data.reviews} today={summary.to} />
-            </section>
-          </>
-        )}
       </div>
     </div>
   );
