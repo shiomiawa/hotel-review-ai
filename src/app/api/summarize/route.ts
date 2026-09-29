@@ -55,6 +55,8 @@ export async function POST(request: Request) {
         label: a.label,
         complaints: a.negative.length > 0 ? "（ダミー）AIにつなぐと、ここに不満の内容の要約が入ります。" : "",
         praises: a.positive.length > 0 ? "（ダミー）AIにつなぐと、ここに好評の内容の要約が入ります。" : "",
+        complaintsEn: a.negative.length > 0 ? "(Dummy) A summary of complaints will appear here once AI is connected." : "",
+        praisesEn: a.positive.length > 0 ? "(Dummy) A summary of positive comments will appear here once AI is connected." : "",
       })),
     });
   }

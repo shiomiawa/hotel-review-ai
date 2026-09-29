@@ -3,6 +3,7 @@
 
 export type Facility = {
   name: string;
+  nameEn: string; // 英語名（外資系ホテル向けの日次メールで使う）
   area: string;
   concept: string;
   managerName: string;
@@ -13,6 +14,7 @@ export type Facility = {
 
 export const facility: Facility = {
   name: "ホテル ソラノハ",
+  nameEn: "Hotel Soranoha",
   area: "海沿いの架空の港町「みなと市」。駅から徒歩5分",
   concept: "観光・出張・家族旅行で1泊から気軽に泊まれる、港町のホテル（全48室）",
   managerName: "支配人 山科",

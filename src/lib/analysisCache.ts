@@ -20,7 +20,10 @@ export const costYen = (u: Usage, model: string) => {
 export const modelName = (model: string | null) => (model ? (PRICES[model]?.name ?? model) : "");
 
 // AIの要約：軸ごとに「不満の内容」「好評の内容」の文だけ（数字は画面側でアプリの計算値を添える）
-export type AiSummary = { mode: "mock" | "ai"; axes: { label: string; complaints: string; praises: string }[] };
+export type AiSummary = {
+  mode: "mock" | "ai";
+  axes: { label: string; complaints: string; praises: string; complaintsEn: string; praisesEn: string }[];
+};
 
 // AIの要約の保存場所の目印。期間と、その期間の分類対象（件数・ID・本文）が同じなら同じ目印になる
 export function summaryKeyFor(unit: PeriodUnit, periodKey: string, targetItems: AnalysisItem[]) {

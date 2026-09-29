@@ -7,7 +7,6 @@ import {
   buildItems,
   classificationKey,
   itemsIn,
-  periodLabel,
   periodOf,
   previousPeriod,
   summarizeAnalysis,
@@ -15,7 +14,7 @@ import {
 import { summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
 import { buildDailyEmail, type DailyEmailData } from "@/lib/dailyEmail";
 import type { Review } from "@/lib/reviews";
-import { computeRatingStats, monthLabel, shortMonthLabel } from "@/lib/stats";
+import { computeRatingStats, monthLabel } from "@/lib/stats";
 import { buildSummary } from "@/lib/summary";
 import type { Voice } from "@/lib/voices";
 
@@ -59,7 +58,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
         reviews: reviewCount,
         voices: inMonth.length - reviewCount,
         openVoices,
-      }).map((l) => ({ kind: l.kind, text: l.text }));
+      }).map((l) => ({ kind: l.kind, text: l.text, textEn: l.textEn }));
       const ai = cache.aiSummaries.get(summaryKeyFor("month", current.key, target));
       if (ai?.mode === "ai") {
         for (const kind of ["complaints", "praises"] as const) {
@@ -70,6 +69,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
                 label: a.label,
                 count: kind === "complaints" ? a.current.negative : a.current.positive,
                 text: ai.axes.find((x) => x.label === a.label)?.[kind] ?? "",
+                textEn: ai.axes.find((x) => x.label === a.label)?.[kind === "complaints" ? "complaintsEn" : "praisesEn"] ?? "",
               }))
               .filter((r) => r.text && r.count > 0)
               .sort((x, y) => y.count - x.count),
@@ -84,21 +84,23 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
       latestDate: stats.today,
       todayAvg: stats.todayStat.avg,
       todayCount: stats.todayStat.count,
-      monthLabel: monthLabel(stats.thisMonth.month),
+      monthKey: stats.thisMonth.month,
       monthAvg: stats.thisMonth.avg,
       monthCount: stats.thisMonth.count,
       momDiff: stats.momDiff,
       yoyDiff: stats.yoyDiff,
-      months: stats.months.slice(-RECENT_MONTHS).map((m) => ({ label: shortMonthLabel(m.month), avg: m.avg, count: m.count })),
+      months: stats.months.slice(-RECENT_MONTHS).map((m) => ({ month: m.month, avg: m.avg, count: m.count })),
     };
 
     return {
-      facilityName: facility.name,
+      facilityName: `${facility.nameEn}（${facility.name}）`,
       date,
+      // 口コミは原文のまま。外国語の口コミは、日本語訳（口コミコムの翻訳コメント）を添える
       reviews: todayReviews.map((r) => ({
         site: r.site,
         rating: r.rating,
-        text: r.text,
+        original: r.originalText ?? r.text,
+        ...(r.originalText && { translation: r.text }),
         ...(r.language && { language: r.language }),
       })),
       voices: todayVoices.map((v) => ({
@@ -108,7 +110,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
         status: v.status,
         action: v.action,
       })),
-      month: { label: periodLabel(current), summaryLines, aiSummary },
+      month: { key: current.key, summaryLines, aiSummary },
       rating,
     };
   }, [date, reviews, voices, allItems, cache.classifications, cache.aiSummaries]);
@@ -164,7 +166,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
 
       <ul className="flex flex-col gap-1 text-sm">
         <li>
-          {monthAnalyzed ? "✓" : "・"} {data.month.label}の4軸分析：
+          {monthAnalyzed ? "✓" : "・"} {monthLabel(data.month.key)}の4軸分析：
           {monthAnalyzed
             ? "分析済み（要約をメールに入れます）"
             : "まだ分析していません。上の4軸分析で「月」を選び「分析する」を押すと、要約がメールに入ります"}
