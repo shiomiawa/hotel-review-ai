@@ -173,7 +173,7 @@ const voices = rows
 
 const COLUMNS = ["received_date", "channel", "customer_type", "content", "rating", "status", "action"];
 const q = (v) => `"${String(v).replaceAll('"', '""')}"`;
-const csv = "﻿" + [COLUMNS.join(","), ...voices.map((v) => COLUMNS.map((c) => q(v[c])).join(","))].join("\r\n") + "\r\n";
+const csv = "\uFEFF" + [COLUMNS.join(","), ...voices.map((v) => COLUMNS.map((c) => q(v[c])).join(","))].join("\r\n") + "\r\n";
 
 mkdirSync("public/sample", { recursive: true });
 writeFileSync("public/sample/voices_sample.csv", csv);

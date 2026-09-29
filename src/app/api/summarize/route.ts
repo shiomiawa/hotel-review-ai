@@ -1,5 +1,6 @@
 import { AXES } from "@/lib/analysis";
 import { describeAIError, isMockAI, summarizeWithClaude, type SummaryInput } from "@/lib/claude";
+import { checkPasscode, refundQuota, takeQuota } from "@/lib/usageGuard";
 
 // ネットの口コミと現場の声をまとめ、軸ごとに「どんな不満・好評か」をAIで要約するAPI。
 // AIには数字を書かせない（件数は画面側でアプリの計算値を添える）。
@@ -58,10 +59,14 @@ export async function POST(request: Request) {
       })),
     });
   }
+  // 本物のAIは費用がかかるので、パスコードと1日の上限を確かめる
+  const denied = checkPasscode(request) ?? takeQuota("summaries");
+  if (denied) return denied;
   try {
     const { axes, usage, model } = await summarizeWithClaude(input);
     return Response.json({ mode: "ai", axes, usage, model });
   } catch (error) {
+    refundQuota("summaries");
     const { message, status } = describeAIError(error);
     console.error("要約に失敗:", message);
     return Response.json({ error: message }, { status });

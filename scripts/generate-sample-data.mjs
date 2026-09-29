@@ -368,7 +368,7 @@ const q = (v) => `"${String(v).replaceAll('"', '""')}"`;
 function toCsv(rows, columns) {
   const lines = [columns.join(",")];
   for (const r of rows) lines.push(columns.map((c) => (typeof r[c] === "number" ? r[c] : q(r[c] ?? ""))).join(","));
-  return "﻿" + lines.join("\r\n") + "\r\n";
+  return "\uFEFF" + lines.join("\r\n") + "\r\n";
 }
 
 mkdirSync("public/sample", { recursive: true });

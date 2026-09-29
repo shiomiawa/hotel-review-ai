@@ -19,7 +19,9 @@ import {
   type Classification,
   type PeriodUnit,
 } from "@/lib/analysis";
-import { costYen, modelName, summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
+import { costYen, modelName, summaryKeyFor, type AiSummary, type AnalysisCache, type Usage } from "@/lib/analysisCache";
+import { analysisCsvFileName, buildAnalysisCsv } from "@/lib/analysisCsv";
+import { postJson } from "@/lib/apiClient";
 import type { Review } from "@/lib/reviews";
 import { buildSummary, type SummaryLine } from "@/lib/summary";
 
@@ -137,25 +139,25 @@ export function AxisAnalysis({
     setLoading(true);
     setError(null);
     try {
-      const next = new Map(classifications);
+      // 小分けに送り、1回分が終わるたびに保存する（途中で失敗しても、それまでの結果は残し、残りだけを送り直せるように）
       for (let i = 0; i < missing.length; i += MAX_ITEMS) {
         const chunk = missing.slice(i, i + MAX_ITEMS);
-        const res = await fetch("/api/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ items: chunk.map(({ id, text }) => ({ id, text })) }),
+        const data = await postJson<{ mode: "mock" | "ai"; classifications: Classification[]; usage?: Usage; model?: string }>(
+          "/api/analyze",
+          { items: chunk.map(({ id, text }) => ({ id, text })) },
+        );
+        const byId = new Map(data.classifications.map((c) => [c.id, c]));
+        setClassifications((prev) => {
+          const next = new Map(prev);
+          for (const item of chunk) {
+            const c = byId.get(item.id);
+            if (c) next.set(classificationKey(item), c);
+          }
+          return next;
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "分析に失敗しました");
-        const byId = new Map((data.classifications as Classification[]).map((c) => [c.id, c]));
-        for (const item of chunk) {
-          const c = byId.get(item.id);
-          if (c) next.set(classificationKey(item), c);
-        }
         setMode(data.mode);
         addUsage(data.usage, data.model);
       }
-      setClassifications(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "分析に失敗しました。時間をおいてもう一度お試しください。");
     } finally {
@@ -168,15 +170,24 @@ export function AxisAnalysis({
   const summaryKey = summaryKeyFor(unit, currentKey!, targetItems);
   const aiSummary = aiSummaries.get(summaryKey);
 
+  // 選んだ期間の分析結果をCSVで書き出す
+  function downloadCsv() {
+    if (!current) return;
+    const { csv } = buildAnalysisCsv(targetItems, classifications, reviews, voices, current);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = analysisCsvFileName(current);
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function summarizeWithAI() {
     if (!result || !current) return;
     setSummarizing(true);
     setSummaryError(null);
     try {
-      const res = await fetch("/api/summarize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await postJson<{ mode: AiSummary["mode"]; axes: AiSummary["axes"]; usage?: Usage; model?: string }>("/api/summarize", {
           periodLabel: periodLabel(current),
           axes: result.axes
             .filter((a) => a.negativeComments.length + a.positiveComments.length > 0)
@@ -185,10 +196,7 @@ export function AxisAnalysis({
               negative: a.negativeComments.slice(0, 30).map((i) => `[${i.channel}] ${i.text}`),
               positive: a.positiveComments.slice(0, 30).map((i) => `[${i.channel}] ${i.text}`),
             })),
-        }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "要約に失敗しました");
       setAiSummaries((prev) => new Map(prev).set(summaryKey, { mode: data.mode, axes: data.axes }));
       addUsage(data.usage, data.model);
     } catch (e) {
@@ -323,6 +331,16 @@ export function AxisAnalysis({
 
       {result && (
         <div className={`flex flex-col gap-5 ${loading ? "opacity-50" : ""}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={downloadCsv}
+              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              分析結果をCSVで書き出す（{periodLabel(current)}・{result.currentTotal}件）
+            </button>
+            <span className="text-xs text-zinc-500">4軸の判定（好評／不満／中立）を付けて、1件1行で書き出します。</span>
+          </div>
           {mode === "mock" && (
             <p className="text-xs text-zinc-500">
               ※ いまはAIにつなぐ前のダミーの分類（キーワードによる簡易判定）です。結果は画面の確認用です。

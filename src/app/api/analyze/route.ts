@@ -1,6 +1,7 @@
 import { MAX_ITEMS, MAX_TEXT_LENGTH } from "@/lib/analysis";
 import { classifyWithClaude, describeAIError, isMockAI } from "@/lib/claude";
 import { mockClassify } from "@/lib/mockClassify";
+import { checkPasscode, refundQuota, takeQuota } from "@/lib/usageGuard";
 
 // 口コミと現場の声を4軸に分類するAPI。
 // USE_MOCK_AI が "false" のときだけ Claude で分類し、それ以外はダミー分類を返す。
@@ -40,10 +41,14 @@ export async function POST(request: Request) {
   if (isMockAI()) {
     return Response.json({ mode: "mock", classifications: mockClassify(items) });
   }
+  // 本物のAIは費用がかかるので、パスコードと1日の上限を確かめる
+  const denied = checkPasscode(request) ?? takeQuota("classifyItems", items.length);
+  if (denied) return denied;
   try {
     const { results, usage, model } = await classifyWithClaude(items);
     return Response.json({ mode: "ai", classifications: results, usage, model });
   } catch (error) {
+    refundQuota("classifyItems", items.length);
     const { message, status } = describeAIError(error);
     console.error("分類に失敗:", message);
     return Response.json({ error: message }, { status });

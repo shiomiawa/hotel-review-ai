@@ -1,4 +1,5 @@
 import { buildDailyEmail, validateDailyEmailData } from "@/lib/dailyEmail";
+import { checkPasscode, refundQuota, takeQuota } from "@/lib/usageGuard";
 
 // 日次メールを Resend で送るAPI。
 // 送り先は環境変数 MAIL_TO に固定し、画面から宛先を指定できないようにする（ほかの人へのいたずら送信を防ぐ）。
@@ -31,6 +32,10 @@ export async function POST(request: Request) {
   const data = validateDailyEmailData(body);
   if (typeof data === "string") return Response.json({ error: data }, { status: 400 });
 
+  // メール送信はパスコードと1日の上限を確かめる
+  const denied = checkPasscode(request) ?? takeQuota("emails");
+  if (denied) return denied;
+
   const { subject, html, text } = buildDailyEmail(data);
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -50,10 +55,12 @@ export async function POST(request: Request) {
               ? "送信の回数が多すぎます。少し待ってからもう一度お試しください"
               : `メールを送れませんでした（${res.status}）`;
       console.error("メール送信に失敗:", res.status, result.message);
+      refundQuota("emails");
       return Response.json({ error: reason }, { status: 502 });
     }
     return Response.json({ ok: true, id: result.id, to: maskEmail(to), subject });
   } catch {
+    refundQuota("emails");
     return Response.json({ error: "メール送信サービスにつながりませんでした" }, { status: 502 });
   }
 }

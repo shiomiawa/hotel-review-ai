@@ -12,6 +12,7 @@ import {
   summarizeAnalysis,
 } from "@/lib/analysis";
 import { summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
+import { postJson } from "@/lib/apiClient";
 import { buildDailyEmail, type DailyEmailData } from "@/lib/dailyEmail";
 import type { Review } from "@/lib/reviews";
 import { computeRatingStats, monthLabel } from "@/lib/stats";
@@ -116,13 +117,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
     setSending(true);
     setMessage(null);
     try {
-      const res = await fetch("/api/email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "送信に失敗しました");
+      const result = await postJson<{ to: string }>("/api/email", data);
       setMessage({ ok: true, text: `送信しました（宛先：${result.to}）。届くまで少しかかることがあります。` });
     } catch (e) {
       setMessage({ ok: false, text: e instanceof Error ? e.message : "送信に失敗しました" });

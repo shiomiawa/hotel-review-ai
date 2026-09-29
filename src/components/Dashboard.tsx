@@ -6,6 +6,7 @@ import { CsvUploader } from "@/components/CsvUploader";
 import { DailyEmail } from "@/components/DailyEmail";
 import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
+import { ServerStatus } from "@/components/ServerStatus";
 import { StatTiles } from "@/components/StatTiles";
 import { VoicesPanel } from "@/components/VoicesPanel";
 import { FORMAT_LABELS, summarize, type ParseResult, type Review } from "@/lib/reviews";
@@ -37,6 +38,7 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
+      <ServerStatus />
       <div role="tablist" aria-label="画面の切り替え" className="flex gap-1 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800">
         {TABS.map((t) => (
           <button

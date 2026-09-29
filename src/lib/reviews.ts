@@ -97,7 +97,7 @@ function readRow(row: RawRow, format: CsvFormat) {
 }
 
 export function parseReviewsCsv(csvText: string): ParseResult {
-  const parsed = Papa.parse<RawRow>(csvText.replace(/^﻿/, ""), {
+  const parsed = Papa.parse<RawRow>(csvText.replace(/^\uFEFF/, ""), {
     header: true,
     skipEmptyLines: "greedy",
     transformHeader: (h) => h.trim().toLowerCase(),

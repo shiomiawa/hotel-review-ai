@@ -97,13 +97,13 @@ export function voicesToCsv(voices: Voice[]): string {
     );
   }
   // Excelで文字化けしないよう BOM を付ける
-  return "﻿" + lines.join("\r\n") + "\r\n";
+  return "\uFEFF" + lines.join("\r\n") + "\r\n";
 }
 
 export type VoiceParseResult = { voices: Voice[]; errors: string[] };
 
 export function parseVoicesCsv(csvText: string, makeId: () => string): VoiceParseResult {
-  const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^﻿/, ""), {
+  const parsed = Papa.parse<Record<string, string>>(csvText.replace(/^\uFEFF/, ""), {
     header: true,
     skipEmptyLines: "greedy",
     transformHeader: (h) => h.trim().toLowerCase(),
