@@ -18,7 +18,6 @@ import { computeRatingStats, monthLabel } from "@/lib/stats";
 import { buildSummary } from "@/lib/summary";
 import type { Voice } from "@/lib/voices";
 
-const RECENT_MONTHS = 6; // メールに載せる月別平均の月数
 const jpDate = (d: string) => `${d.slice(0, 4)}年${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 
 export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voices: Voice[]; cache: AnalysisCache }) {
@@ -80,15 +79,11 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
     // 評価点の推移（その日までの口コミで集計）
     const stats = computeRatingStats(reviews.filter((r) => r.date <= date));
     const rating: DailyEmailData["rating"] = stats && {
-      latestDate: stats.today,
-      todayAvg: stats.todayStat.avg,
-      todayCount: stats.todayStat.count,
       monthKey: stats.thisMonth.month,
       monthAvg: stats.thisMonth.avg,
       monthCount: stats.thisMonth.count,
       momDiff: stats.momDiff,
       yoyDiff: stats.yoyDiff,
-      months: stats.months.slice(-RECENT_MONTHS).map((m) => ({ month: m.month, avg: m.avg, count: m.count })),
     };
 
     return {
