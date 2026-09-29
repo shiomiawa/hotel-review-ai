@@ -12,7 +12,8 @@ import {
   monthShortEn,
 } from "@/lib/i18n";
 
-// 日次メールの中身（件名・HTML・テキスト）を作る。外資系ホテル向けに英語で書き、色で状態がひと目で分かるようにする。
+// 日次メールの中身（件名・HTML・テキスト）を作る。外資系ホテル向けに、見出し・項目名・バッジは英語、文章は日本語にする。
+// 色で状態がひと目で分かるようにする。
 // 画面のプレビューとサーバーの送信の両方で同じ関数を使い、見た目をそろえる。
 // 口コミ・現場の声は原文のまま載せ、外国語の口コミには和訳を添える。お客様の文章は必ずエスケープする。
 
@@ -25,7 +26,7 @@ export type DailyEmailData = {
   month: {
     key: string; // 例：2026-09
     summaryLines: { kind: string; text: string; textEn: string }[]; // 数値から作った要約（分析していなければ空）
-    aiSummary: { kind: "complaints" | "praises"; label: string; count: number; text: string; textEn: string }[]; // AIの要約（なければ空）
+    aiSummary: { kind: "complaints" | "praises"; label: string; count: number; text: string }[]; // AIの要約（日本語。なければ空）
   };
   rating: {
     latestDate: string; // 評価点の集計に使った口コミの最新日
@@ -94,7 +95,7 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export const emailSubject = (date: string) => `Review Daily Report (${dotDate(date)})`;
 
-// メール本文は英語。口コミ・現場の声は原文のまま載せ、外国語の口コミには和訳を添える
+// 見出し・項目名・バッジは英語、要約などの文章は日本語。口コミ・現場の声は原文のまま載せ、外国語の口コミには和訳を添える
 export function buildDailyEmail(d: DailyEmailData): { subject: string; html: string; text: string } {
   const subject = emailSubject(d.date);
   const openVoices = d.voices.filter((v) => v.status !== "完了").length;
@@ -134,25 +135,25 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
   // 2. 月の要約
   parts.push(h2(`Monthly Summary — ${monthName}`));
   if (d.month.summaryLines.length === 0) {
-    parts.push(p("The monthly analysis has not been run yet. Run it in the app to include this summary.", small));
+    parts.push(p("この月の4軸分析はまだ行われていません。アプリの分析ダッシュボードで「月」を選び「分析する」を押すと、次回から要約が入ります。", small));
   } else {
     parts.push(
       `<table style="border-collapse:collapse;margin:2px 0">${d.month.summaryLines
         .map((l) => {
           const s = LINE_STYLE[l.kind] ?? LINE_STYLE.overview;
-          return `<tr><td style="padding:4px 8px 4px 0;vertical-align:top;color:${s.color};font-weight:bold">${s.mark}</td><td style="padding:4px 0;color:${COLOR.text}">${escapeHtml(l.textEn)}</td></tr>`;
+          return `<tr><td style="padding:4px 8px 4px 0;vertical-align:top;color:${s.color};font-weight:bold">${s.mark}</td><td style="padding:4px 0;color:${COLOR.text}">${escapeHtml(l.text)}</td></tr>`;
         })
         .join("")}</table>`,
     );
   }
   for (const kind of ["complaints", "praises"] as const) {
-    const rows = d.month.aiSummary.filter((a) => a.kind === kind && a.textEn);
+    const rows = d.month.aiSummary.filter((a) => a.kind === kind && a.text);
     if (rows.length === 0) continue;
     const isBad = kind === "complaints";
     parts.push(
       p(
         `<strong style="color:${isBad ? COLOR.bad : COLOR.good}">${isBad ? "What guests complained about" : "What guests praised"}</strong>` +
-          ` <span style="${small}">(AI summary of comments · counts by the app)</span>`,
+          ` <span style="${small}">（AIがコメントを読んで作成・件数はアプリが集計）</span>`,
         "margin-top:14px",
       ),
     );
@@ -162,7 +163,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
           p(
             `${badge(en(AXIS_EN, a.label), isBad ? COLOR.bad : COLOR.good, isBad ? COLOR.badBg : COLOR.goodBg)}` +
               ` <span style="${small}">${plural(a.count, isBad ? "complaint" : "positive comment")}</span>`,
-          ) + p(escapeHtml(a.textEn), `color:${COLOR.text}`),
+          ) + p(escapeHtml(a.text), `color:${COLOR.text}`),
           isBad ? COLOR.bad : COLOR.good,
         ),
       );
@@ -172,7 +173,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
   // 3. 評価点の推移
   parts.push(h2("Rating Trend (Online Reviews)"));
   if (!d.rating) {
-    parts.push(p("No review data has been loaded.", small));
+    parts.push(p("口コミCSVが読み込まれていないため、評価点の推移はありません。", small));
   } else {
     const r = d.rating;
     const diff = (v: number | null) =>
@@ -207,7 +208,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
 
   // 4. 本日の口コミ（原文のまま。外国語は和訳を添える）
   parts.push(h2(`Today's Online Reviews (${d.reviews.length})`));
-  if (d.reviews.length === 0) parts.push(p("No reviews today.", small));
+  if (d.reviews.length === 0) parts.push(p("本日の口コミはありません。", small));
   for (const r of d.reviews) {
     const color = r.rating >= 4 ? COLOR.good : r.rating >= 3 ? COLOR.warn : COLOR.bad;
     parts.push(
@@ -217,7 +218,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
             `　<span style="${small}">${escapeHtml(en(SITE_EN, r.site))}</span>` +
             (r.language ? ` ${badge(en(LANGUAGE_EN, r.language), COLOR.info, COLOR.infoBg)}` : ""),
         ) +
-          p(r.original ? nl2br(r.original) : `<span style="${small}">(Rating only — no comment)</span>`, `color:${COLOR.text}`) +
+          p(r.original ? nl2br(r.original) : `<span style="${small}">（本文なし・評価のみの投稿）</span>`, `color:${COLOR.text}`) +
           (r.translation
             ? `<div style="margin-top:8px;padding:8px 10px;background:${COLOR.neutralBg};border-radius:4px"><div style="${small}">Japanese translation</div><div style="color:${COLOR.text}">${nl2br(r.translation)}</div></div>`
             : ""),
@@ -228,7 +229,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
 
   // 5. 本日受けた現場の声（原文のまま）
   parts.push(h2(`Today's On-site Feedback (${d.voices.length})`));
-  if (d.voices.length === 0) parts.push(p("No on-site feedback today.", small));
+  if (d.voices.length === 0) parts.push(p("本日受けた現場の声はありません。", small));
   for (const v of d.voices) {
     const s = STATUS_STYLE[v.status] ?? { fg: COLOR.muted, bg: COLOR.neutralBg };
     parts.push(
@@ -244,7 +245,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
     );
   }
 
-  parts.push(`<p style="margin:28px 0 0;${small}">Sent automatically by the Review Analysis app.</p>`);
+  parts.push(`<p style="margin:28px 0 0;${small}">このメールは「口コミAI分析＆返信支援」アプリから自動で送信しています。</p>`);
 
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:16px;background:#ffffff;color:${COLOR.text};font-family:Arial,'Helvetica Neue','Hiragino Sans','Yu Gothic','Meiryo',sans-serif;line-height:1.6"><div style="max-width:640px;margin:0 auto">${parts.join("")}</div></body></html>`;
 
@@ -252,10 +253,10 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
   const t: string[] = [subject, `${d.facilityName} · ${dateEn(d.date)}`, ""];
   t.push("TODAY AT A GLANCE", `Online reviews: ${d.reviews.length}${reviewAvg !== null ? ` (avg. ${reviewAvg.toFixed(2)})` : ""}`, `On-site feedback: ${d.voices.length} (${openVoices} open)`, "");
   t.push(`MONTHLY SUMMARY — ${monthName}`);
-  if (d.month.summaryLines.length === 0) t.push("(Not analyzed yet)");
-  for (const l of d.month.summaryLines) t.push(`${(LINE_STYLE[l.kind] ?? LINE_STYLE.overview).mark} ${l.textEn}`);
-  for (const a of d.month.aiSummary.filter((x) => x.textEn))
-    t.push(`${a.kind === "complaints" ? "▲" : "✓"} ${en(AXIS_EN, a.label)} (${a.count}): ${a.textEn}`);
+  if (d.month.summaryLines.length === 0) t.push("（この月の4軸分析はまだ行われていません）");
+  for (const l of d.month.summaryLines) t.push(`${(LINE_STYLE[l.kind] ?? LINE_STYLE.overview).mark} ${l.text}`);
+  for (const a of d.month.aiSummary.filter((x) => x.text))
+    t.push(`${a.kind === "complaints" ? "▲" : "✓"} ${en(AXIS_EN, a.label)} (${a.count}): ${a.text}`);
   t.push("");
   if (d.rating) {
     t.push(
@@ -268,7 +269,7 @@ export function buildDailyEmail(d: DailyEmailData): { subject: string; html: str
   }
   t.push(`TODAY'S ONLINE REVIEWS (${d.reviews.length})`);
   for (const r of d.reviews) {
-    t.push(`- ${stars(r.rating)} ${ratingNum(r.rating)} ${en(SITE_EN, r.site)}: ${r.original || "(rating only)"}`);
+    t.push(`- ${stars(r.rating)} ${ratingNum(r.rating)} ${en(SITE_EN, r.site)}: ${r.original || "（評価のみ）"}`);
     if (r.translation) t.push(`  Japanese translation: ${r.translation}`);
   }
   t.push("", `TODAY'S ON-SITE FEEDBACK (${d.voices.length})`);
@@ -308,7 +309,7 @@ export function validateDailyEmailData(x: unknown): DailyEmailData | string {
   if (
     m.aiSummary.length > EMAIL_LIMITS.lines ||
     !m.aiSummary.every(
-      (a) => (a.kind === "complaints" || a.kind === "praises") && isStr(a.label, 50) && isNum(a.count) && isStr(a.text) && isStr(a.textEn),
+      (a) => (a.kind === "complaints" || a.kind === "praises") && isStr(a.label, 50) && isNum(a.count) && isStr(a.text),
     )
   )
     return "AIの要約のデータの形が正しくありません";

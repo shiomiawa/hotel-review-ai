@@ -69,7 +69,6 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
                 label: a.label,
                 count: kind === "complaints" ? a.current.negative : a.current.positive,
                 text: ai.axes.find((x) => x.label === a.label)?.[kind] ?? "",
-                textEn: ai.axes.find((x) => x.label === a.label)?.[kind === "complaints" ? "complaintsEn" : "praisesEn"] ?? "",
               }))
               .filter((r) => r.text && r.count > 0)
               .sort((x, y) => y.count - x.count),
