@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { AxisAnalysis } from "@/components/AxisAnalysis";
 import { CsvUploader } from "@/components/CsvUploader";
+import { DailyEmail } from "@/components/DailyEmail";
 import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
 import { StatTiles } from "@/components/StatTiles";
 import { VoicesPanel } from "@/components/VoicesPanel";
 import { FORMAT_LABELS, summarize, type ParseResult, type Review } from "@/lib/reviews";
+import { useAnalysisCache } from "@/lib/analysisCache";
 import { computeRatingStats } from "@/lib/stats";
 import { useVoices } from "@/lib/voiceStore";
 
@@ -30,6 +32,8 @@ export function Dashboard() {
   const voices = useVoices();
   const openVoices = voices.filter((v) => v.status !== "完了").length;
   const [tab, setTab] = useState<TabId>("analysis");
+  // 4軸分析の結果は、分析画面と日次メールの両方で使うため、ここで持つ
+  const analysisCache = useAnalysisCache();
 
   return (
     <div className="flex flex-col gap-6">
@@ -146,7 +150,7 @@ export function Dashboard() {
           <section className="flex flex-col gap-6">
             <h2 className="text-lg font-bold">2. 分析結果</h2>
             {/* 主役の4軸分析を先に置く */}
-            <AxisAnalysis reviews={data?.reviews ?? NO_REVIEWS} voices={voices} />
+            <AxisAnalysis reviews={data?.reviews ?? NO_REVIEWS} voices={voices} cache={analysisCache} />
             {stats ? (
               <div className="flex flex-col gap-3">
                 <h3 className="font-bold">評価点の推移（ネットの口コミ）</h3>
@@ -156,6 +160,16 @@ export function Dashboard() {
             ) : (
               <p className="text-sm text-zinc-500">口コミCSVを読み込むと、評価点の推移も表示されます。</p>
             )}
+          </section>
+        )}
+
+        {(summary || voices.length > 0) && (
+          <section className="flex flex-col gap-3">
+            <h2 className="text-lg font-bold">3. 日次メール</h2>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              その日の口コミと現場の声、月の要約、評価点の推移をまとめて、現場スタッフへメールで送ります。
+            </p>
+            <DailyEmail reviews={data?.reviews ?? NO_REVIEWS} voices={voices} cache={analysisCache} />
           </section>
         )}
 

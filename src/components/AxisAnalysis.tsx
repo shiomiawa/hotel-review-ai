@@ -19,24 +19,10 @@ import {
   type Classification,
   type PeriodUnit,
 } from "@/lib/analysis";
+import { costYen, modelName, summaryKeyFor, type AnalysisCache } from "@/lib/analysisCache";
 import type { Review } from "@/lib/reviews";
 import { buildSummary, type SummaryLine } from "@/lib/summary";
 
-// AIの利用量と料金の目安（100万トークンあたりの米ドル。1ドル=150円で換算）
-type Usage = { inputTokens: number; outputTokens: number };
-const PRICES: Record<string, { input: number; output: number; name: string }> = {
-  "claude-haiku-4-5": { input: 1, output: 5, name: "Claude Haiku 4.5" },
-  "claude-sonnet-5": { input: 2, output: 10, name: "Claude Sonnet 5" },
-};
-const YEN_PER_DOLLAR = 150;
-const costYen = (u: Usage, model: string) => {
-  const p = PRICES[model];
-  return p ? ((u.inputTokens * p.input + u.outputTokens * p.output) / 1_000_000) * YEN_PER_DOLLAR : null;
-};
-const modelName = (model: string | null) => (model ? (PRICES[model]?.name ?? model) : "");
-
-// AIの要約：軸ごとに「不満の内容」「好評の内容」の文だけ（数字は画面側でアプリの計算値を添える）
-type AiSummary = { mode: "mock" | "ai"; axes: { label: string; complaints: string; praises: string }[] };
 import type { Voice } from "@/lib/voices";
 
 const pct = (n: number, d: number) => (d === 0 ? "―" : `${Math.round((n / d) * 100)}%`);
@@ -100,7 +86,16 @@ const SUMMARY_MARK: Record<SummaryLine["kind"], { mark: string; className: strin
   voices: { mark: "□", className: "text-amber-600 dark:text-amber-400" },
 };
 
-export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: Voice[] }) {
+export function AxisAnalysis({
+  reviews,
+  voices,
+  cache,
+}: {
+  reviews: Review[];
+  voices: Voice[];
+  cache: AnalysisCache;
+}) {
+  const { classifications, setClassifications, mode, setMode, usage, addUsage, aiSummaries, setAiSummaries } = cache;
   const baseDate = useMemo(() => baseDateOf(reviews, voices), [reviews, voices]);
   const allItems = useMemo(() => buildItems(reviews, voices), [reviews, voices]);
 
@@ -108,26 +103,9 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
   const [key, setKey] = useState<string | null>(null); // null のときは基準日を含む期間
   const currentKey = key ?? (baseDate ? periodKeyOf(baseDate, unit) : null);
 
-  // 分類結果は本文ごとに保存し、期間を切り替えても使い回す（まだ分類していない分だけ送る）
-  const [classifications, setClassifications] = useState<Map<string, Classification>>(new Map());
-  const [mode, setMode] = useState<"mock" | "ai" | null>(null);
-  // この画面を開いてからのAIの利用量（効果測定のAPIコストの記録にも使う）
-  const [usage, setUsage] = useState<{ total: Usage; model: string | null }>({
-    total: { inputTokens: 0, outputTokens: 0 },
-    model: null,
-  });
-  // AIの要約は、期間ごと・分類結果ごとに保存して使い回す
-  const [aiSummaries, setAiSummaries] = useState<Map<string, AiSummary>>(new Map());
   const [summarizing, setSummarizing] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  function addUsage(u: Usage | undefined, model: string | undefined) {
-    if (!u) return;
-    setUsage((prev) => ({
-      total: { inputTokens: prev.total.inputTokens + u.inputTokens, outputTokens: prev.total.outputTokens + u.outputTokens },
-      model: model ?? prev.model,
-    }));
-  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -187,7 +165,7 @@ export function AxisAnalysis({ reviews, voices }: { reviews: Review[]; voices: V
 
   if (!current || !previous) return null;
   // AIの要約の保存場所の目印（期間と、その期間の分類済みの口コミ・現場の声がそろっているか）
-  const summaryKey = `${unit}|${currentKey}|${targetItems.map((i) => classificationKey(i)).join(" ").length}|${targetItems.length}`;
+  const summaryKey = summaryKeyFor(unit, currentKey!, targetItems);
   const aiSummary = aiSummaries.get(summaryKey);
 
   async function summarizeWithAI() {
