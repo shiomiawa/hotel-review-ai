@@ -16,6 +16,17 @@ export const CHANNEL_EN: Record<string, string> = {
   "旅行会社・団体": "Travel Agents & Groups",
 };
 
+// 口コミサイト名（英語のサイト名はそのまま）
+export const SITE_EN: Record<string, string> = {
+  楽天トラベル: "Rakuten Travel",
+  じゃらん: "Jalan",
+  "Google マップ": "Google Maps",
+  Googleマップ: "Google Maps",
+  "一休.com": "Ikyu.com",
+  るるぶトラベル: "Rurubu Travel",
+  "Yahoo!トラベル": "Yahoo! Travel",
+};
+
 export const CUSTOMER_EN: Record<string, string> = {
   "個人・カップル": "Individual / Couple",
   家族: "Family",

@@ -93,7 +93,7 @@ export function DailyEmail({ reviews, voices, cache }: { reviews: Review[]; voic
     };
 
     return {
-      facilityName: `${facility.nameEn}（${facility.name}）`,
+      facilityName: facility.nameEn,
       date,
       // 口コミは原文のまま。外国語の口コミは、日本語訳（口コミコムの翻訳コメント）を添える
       reviews: todayReviews.map((r) => ({
