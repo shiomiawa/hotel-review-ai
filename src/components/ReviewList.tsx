@@ -23,28 +23,140 @@ const Badge = ({ children, className }: { children: React.ReactNode; className: 
   <span className={`rounded px-1.5 py-0.5 text-xs ${className}`}>{children}</span>
 );
 
+type PeriodMode = "all" | "year" | "month" | "day";
+const PERIOD_MODES: { id: PeriodMode; label: string }[] = [
+  { id: "all", label: "すべて" },
+  { id: "year", label: "年" },
+  { id: "month", label: "月" },
+  { id: "day", label: "日" },
+];
+// 期間の値："2026"／"2026-09"／"2026-09-26" → 口コミの日付の先頭と比べる
+const keyLength: Record<Exclude<PeriodMode, "all">, number> = { year: 4, month: 7, day: 10 };
+const periodLabel = (mode: PeriodMode, value: string) =>
+  mode === "year"
+    ? `${value}年`
+    : mode === "month"
+      ? `${value.slice(0, 4)}年${Number(value.slice(5, 7))}月`
+      : `${value.slice(0, 4)}年${Number(value.slice(5, 7))}月${Number(value.slice(8, 10))}日`;
+
 export function ReviewList({ reviews, today }: { reviews: Review[]; today: string }) {
+  const [periodMode, setPeriodMode] = useState<PeriodMode>("all");
+  const [periodValue, setPeriodValue] = useState("");
   const [site, setSite] = useState("すべて");
   const [rating, setRating] = useState("すべて");
+  const [reply, setReply] = useState("すべて");
+  const [order, setOrder] = useState<"new" | "old">("new");
   const [shown, setShown] = useState(PAGE_SIZE);
 
   const sites = useMemo(() => ["すべて", ...new Set(reviews.map((r) => r.site))], [reviews]);
+  // 返信状況が分かる形式（口コミコムの出力）のときだけ、返信状況で絞り込めるようにする
+  const hasReplyInfo = reviews.some((r) => r.replied !== undefined);
+
+  // 年・月・日の選択肢（口コミがある期間だけ。古い順）と件数
+  const periodOptions = useMemo(() => {
+    if (periodMode === "all") return [];
+    const counts = new Map<string, number>();
+    for (const r of reviews) {
+      const key = r.date.slice(0, keyLength[periodMode]);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([value, count]) => ({ value, count }));
+  }, [reviews, periodMode]);
+  const periodIndex = periodOptions.findIndex((o) => o.value === periodValue);
+
+  function changePeriod(mode: PeriodMode, value?: string) {
+    setPeriodMode(mode);
+    // 値を指定しなければ、当日（CSVの最新日）を含む期間にする
+    setPeriodValue(mode === "all" ? "" : (value ?? today.slice(0, keyLength[mode])));
+    setShown(PAGE_SIZE);
+  }
 
   const filtered = useMemo(
     () =>
       reviews
+        .filter((r) => periodMode === "all" || r.date.startsWith(periodValue))
         .filter((r) => site === "すべて" || r.site === site)
         .filter((r) => rating === "すべて" || Math.round(r.rating) === Number(rating))
-        // 新しい順（同じ日付なら読み込み順の後ろから）
-        .sort((a, b) => b.date.localeCompare(a.date) || Number(b.id.slice(1)) - Number(a.id.slice(1))),
-    [reviews, site, rating],
+        .filter((r) => reply === "すべて" || (reply === "未返信" ? r.replied === false : r.replied === true))
+        // 日付順（同じ日付なら読み込み順）
+        .sort((a, b) => {
+          const d = a.date.localeCompare(b.date) || Number(a.id.slice(1)) - Number(b.id.slice(1));
+          return order === "new" ? -d : d;
+        }),
+    [reviews, periodMode, periodValue, site, rating, reply, order],
   );
 
   const selectClass =
     "rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900";
+  const smallButton =
+    "rounded-md border border-zinc-300 px-2 py-1 text-sm hover:bg-zinc-100 disabled:opacity-40 dark:border-zinc-700 dark:hover:bg-zinc-800";
+  const resetShown = () => setShown(PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-3">
+      {/* 期間：日ごとに口コミを確認・返信していく使い方のため、年・月・日で絞り込み、前後に送れるようにする */}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span>期間</span>
+        <div
+          role="group"
+          aria-label="期間の単位"
+          className="flex overflow-hidden rounded-md border border-zinc-300 dark:border-zinc-700"
+        >
+          {PERIOD_MODES.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              aria-pressed={periodMode === m.id}
+              onClick={() => changePeriod(m.id)}
+              className={`px-3 py-1 ${
+                periodMode === m.id ? "bg-teal-700 text-white" : "hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {periodMode !== "all" && (
+          // 「前へ・期間・次へ」は折り返しても離れないよう、ひとまとまりにする
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => changePeriod(periodMode, periodOptions[periodIndex - 1].value)}
+              disabled={periodIndex <= 0}
+              className={smallButton}
+            >
+              ‹ 前へ
+            </button>
+            <select
+              aria-label="対象の期間"
+              value={periodValue}
+              onChange={(e) => changePeriod(periodMode, e.target.value)}
+              className={selectClass}
+            >
+              {periodIndex === -1 && (
+                <option value={periodValue}>{periodLabel(periodMode, periodValue)}（0件）</option>
+              )}
+              {periodOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {periodLabel(periodMode, o.value)}（{o.count}件）
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => changePeriod(periodMode, periodOptions[periodIndex + 1].value)}
+              disabled={periodIndex === -1 || periodIndex >= periodOptions.length - 1}
+              className={smallButton}
+            >
+              次へ ›
+            </button>
+          </span>
+        )}
+        <button type="button" onClick={() => changePeriod("day", today)} className={smallButton}>
+          当日を表示
+        </button>
+      </div>
+
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-1">
           サイト
@@ -52,7 +164,7 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
             value={site}
             onChange={(e) => {
               setSite(e.target.value);
-              setShown(PAGE_SIZE);
+              resetShown();
             }}
             className={selectClass}
           >
@@ -67,7 +179,7 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
             value={rating}
             onChange={(e) => {
               setRating(e.target.value);
-              setShown(PAGE_SIZE);
+              resetShown();
             }}
             className={selectClass}
           >
@@ -76,6 +188,37 @@ export function ReviewList({ reviews, today }: { reviews: Review[]; today: strin
                 {v === "すべて" ? v : `★${v}`}
               </option>
             ))}
+          </select>
+        </label>
+        {hasReplyInfo && (
+          <label className="flex items-center gap-1">
+            返信
+            <select
+              value={reply}
+              onChange={(e) => {
+                setReply(e.target.value);
+                resetShown();
+              }}
+              className={selectClass}
+            >
+              {["すべて", "未返信", "返信済み"].map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="flex items-center gap-1">
+          並び順
+          <select
+            value={order}
+            onChange={(e) => {
+              setOrder(e.target.value as "new" | "old");
+              resetShown();
+            }}
+            className={selectClass}
+          >
+            <option value="new">新しい順</option>
+            <option value="old">古い順</option>
           </select>
         </label>
         <span className="text-zinc-500">{filtered.length}件</span>
