@@ -13,7 +13,7 @@ export type QuotaKind = "classifyItems" | "summaries" | "emails";
 
 // 1日の上限の初期値（環境変数で変えられる）
 const DEFAULT_LIMITS: Record<QuotaKind, number> = {
-  classifyItems: 2000, // AIで分類する件数（口コミ＋現場の声）
+  classifyItems: 300, // AIで分類する件数（口コミ＋現場の声）
   summaries: 30, // AIの要約の回数
   emails: 10, // メールの送信回数
 };
