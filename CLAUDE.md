@@ -138,6 +138,7 @@
 - 返信作成時間：1件5〜7分 → 目標1分（完成後に10件実測する）
 - 分類の精度：架空口コミ50件を手作業で仕分けし、AIとの一致率を出す
 - APIコスト：口コミ1件あたり、1施設・月あたりの金額を記録する
+- 測り方：`scripts/eval-classification.ts`（分類の精度）・`scripts/measure-cost.ts`（APIコスト）。使い方と結果は `data/eval/README.md`・`data/eval/results/`
 
 ## Git運用ルール（必ず守る）
 - コードを変更するたびに、動作確認 → コミット → GitHubへプッシュ までを1セットで行う

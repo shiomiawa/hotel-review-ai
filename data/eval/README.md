@@ -37,3 +37,23 @@ AIに正解を付けさせると「AIとAIの比較」になり、精度の測�
 - **評価点（rating）は見ずに、本文だけで判断する**
 
 迷ったケースは、判断の理由をメモしておくと、レポートで「AIと人の判断が分かれた例」として使えます。
+
+## 精度を測る（ラベルを記入したあと）
+
+```bash
+npx tsx --env-file=.env.local scripts/eval-classification.ts
+```
+
+- `.env.local` の APIキーと `CLAUDE_MODEL_CLASSIFY` のモデルで、50件をAIに分類させ、記入した正解と比べます（Haiku 4.5 で約2円）
+- 結果は `data/eval/results/eval-<モデル>-<日付>.md` に保存されます（一致率、軸ごとの「不満」の見つけやすさ・正しさ、人とAIの判定が分かれた例）
+- ラベルが空欄の欄があると、どこが空欄かを表示して止まります
+- `--mock` を付けると、AIを呼ばずにダミー分類で動作だけ確かめられます（費用0）
+
+## APIコストを測る
+
+```bash
+npx tsx --env-file=.env.local scripts/measure-cost.ts
+```
+
+- サンプルデータの1か月分（今月＋前月）を実際に分類し、要約も1回作って、1件あたり・1施設1か月あたりの費用を試算します（約4円）
+- 結果は `data/eval/results/cost-<モデル>-<日付>.md` に保存されます
