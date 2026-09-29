@@ -1,17 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AxisAnalysis } from "@/components/AxisAnalysis";
 import { CsvUploader } from "@/components/CsvUploader";
 import { RatingCharts } from "@/components/RatingCharts";
 import { ReviewList } from "@/components/ReviewList";
 import { StatTiles } from "@/components/StatTiles";
 import { VoicesPanel } from "@/components/VoicesPanel";
-import { FORMAT_LABELS, summarize, type ParseResult } from "@/lib/reviews";
+import { FORMAT_LABELS, summarize, type ParseResult, type Review } from "@/lib/reviews";
 import { computeRatingStats } from "@/lib/stats";
 import { useVoices } from "@/lib/voiceStore";
 
 // loadId：読み込むたびに増やし、一覧の絞り込みをリセットするために使う
 type Loaded = ParseResult & { sourceName: string; loadId: number };
+const NO_REVIEWS: Review[] = [];
 
 const TABS = [
   { id: "analysis", label: "分析ダッシュボード" },
@@ -104,20 +106,25 @@ export function Dashboard() {
           )}
         </section>
 
-        {summary && stats && data && (
-          <>
-            <section className="flex flex-col gap-4">
-              <h2 className="text-lg font-bold">2. 分析結果</h2>
-              {/* 4軸分類・優先改善アラート・強み・経路別の比較はステップ5で、評価点の推移より上に追加する */}
-              <p className="rounded-lg border border-dashed border-zinc-300 px-4 py-4 text-center text-sm text-zinc-500 dark:border-zinc-700">
-                4軸分類・優先改善アラート・強み・経路別の比較は、次のステップで追加します（記録済みの現場の声 {voices.length}件も合わせて分析します）。
-              </p>
+        {(summary || voices.length > 0) && (
+          <section className="flex flex-col gap-6">
+            <h2 className="text-lg font-bold">2. 分析結果</h2>
+            {/* 主役の4軸分析を先に置く */}
+            <AxisAnalysis reviews={data?.reviews ?? NO_REVIEWS} voices={voices} />
+            {stats ? (
               <div className="flex flex-col gap-3">
-                <h3 className="font-bold">評価点の推移</h3>
+                <h3 className="font-bold">評価点の推移（ネットの口コミ）</h3>
                 <StatTiles stats={stats} />
                 <RatingCharts stats={stats} />
               </div>
-            </section>
+            ) : (
+              <p className="text-sm text-zinc-500">口コミCSVを読み込むと、評価点の推移も表示されます。</p>
+            )}
+          </section>
+        )}
+
+        {summary && data && (
+          <>
 
             <section className="flex flex-col gap-3">
               <h2 className="text-lg font-bold">3. 口コミ一覧</h2>

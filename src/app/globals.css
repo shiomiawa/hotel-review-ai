@@ -11,6 +11,10 @@
   --chart-muted: #898781;
   --delta-up: #006300;
   --delta-down: #d03b3b;
+
+  /* 状態を表す色（アラート・強み）。色だけに頼らず、記号と言葉を必ず添える */
+  --status-critical: #d03b3b;
+  --status-good: #0ca30c;
 }
 
 @theme inline {
